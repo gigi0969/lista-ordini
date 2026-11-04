@@ -251,12 +251,15 @@ const isFraz = u => u === 'KG' || u === 'LT';
 const r1 = n => Math.round(n*10)/10;
 /* Minimo = soglia di riordino; Massimo = quantità da raggiungere con l'ordine.
    Si ordina solo se la giacenza è sotto il minimo, fino al massimo. Senza massimo si riporta al minimo. */
-function calcOrdine(min,g,u,max){
+/* lotto = multiplo d'ordine (es. bancale da 40 sacchi): l.ordine viene arrotondato al multiplo più vicino (almeno uno) */
+function calcOrdine(min,g,u,max,lotto){
   if(typeof g !== 'number') return 0;
   const soglia = min > 0 ? min : (max > 0 ? max : 0); if(!soglia || g >= soglia) return 0;
   const target = max > 0 ? Math.max(max, soglia) : soglia; const o = target - g; if(o <= 0) return 0;
+  if(lotto > 0) return Math.max(1, Math.round(o / lotto)) * lotto;
   return isFraz(u) ? r1(o) : Math.ceil(o);
 }
+const LOTTI_SEED = {'Farina Lucia':40};
 function num(v){ if(v===''||v==null) return null; const n = parseFloat(String(v).replace(',','.')); return isNaN(n)||n<0 ? null : n; }
 const fmtN = n => n==null ? '' : String(n).replace('.',',');
 const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
@@ -317,7 +320,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v23'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v24'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -471,7 +474,7 @@ function righeOrdine(c, list){
   return list.map(a => { const base = {id:a.id, nome:a.nome, unita:a.unita||'', sezione:a.sezione||'', fornitore:a.fornitore||''};
     if(isDir(a)){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
     const g = c.righe[a.id], sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
-    return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx)}; });
+    return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx,Number(a.lotto)||0)}; });
 }
 
 async function ordineAnticipato(i){
@@ -701,7 +704,7 @@ function catRow(a,sede){
   const on = p.on !== undefined ? p.on : s.on !== false;
   const sc = p.scorta !== undefined ? p.scorta : (Number(s.scorta) > 0 ? Number(s.scorta) : null);
   const mx = p.max !== undefined ? p.max : (Number(s.max) > 0 ? Number(s.max) : null);
-  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}</small></div>
+  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}${a.lotto>0?`, multipli di ${a.lotto}`:''}</small></div>
     <label class="chk"><input type="checkbox" data-on${on?' checked':''}> In uso</label>
     ${isDir(a) ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
 }
@@ -777,13 +780,14 @@ function editArticolo(id){
     <label class="fld">Sezione<input id="asz" list="dl-sez" value="${esc(a.sezione)}"></label>
     <label class="fld">Fornitore<input id="af" list="dl-forn" value="${esc(a.fornitore)}"></label>
     <label class="fld">Unità di conteggio<select id="au">${units.map(u=>`<option${u===a.unita?' selected':''}>${esc(u)}</option>`).join('')}</select></label>
+    <label class="fld">Ordina a multipli di (es. 40 = bancale; vuoto = quantità esatta)<input id="alot" inputmode="numeric" value="${a.lotto>0?a.lotto:''}"></label>
     <label class="fld">Reparto<select id="arep">${REPARTI.map(r=>`<option value="${r.id}"${r.id===(id?repDi(a):'pizzeria')?' selected':''}>${r.nome}</option>`).join('')}</select></label>
     <label class="chk" style="margin-bottom:1rem"><input type="checkbox" id="adir"${a.diretto?' checked':''}> Ordine diretto: il personale scrive quanto ordinare, senza giacenza</label>
     <datalist id="dl-sez">${sezs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <datalist id="dl-forn">${forns.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <div class="acts">${id?'<button class="btn danger" id="adel">Elimina</button>':''}<span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="asave">Salva</button></div>`, m => {
     m.querySelector('#asave').onclick = async () => {
-      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, diretto:$('#adir').checked, reparto:$('#arep').value};
+      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), diretto:$('#adir').checked, reparto:$('#arep').value};
       if(!d.nome){ toast('Inserisci il nome','err'); return; }
       if(id) await db.collection('articoli').doc(id).update(d);
       else { const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on:true, scorta:0});
@@ -803,7 +807,7 @@ async function seedCatalogo(){
   SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => {
     const [nome,u,sc,mx] = item.split(':'); const scs = scorteSeed(sc), mxs = scorteSeed(mx); const dir = SEZ_DIRETTE[sez];
     const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
-    batch.set(db.collection('articoli').doc(), {nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
+    batch.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
   }));
   await batch.commit(); toast(`Catalogo caricato: ${ord} articoli`,'ok');
 }
@@ -825,7 +829,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v23';
+  const KEY = 'giacenze-demo-v24';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
@@ -877,7 +881,7 @@ function makeDemo(){
       const dir = SEZ_DIRETTE[sez]; if(dir) SEDI.forEach(s => scs[s.id] = 0);
       const mxs = mx ? scorteSeed(mx) : {}; if(!mx) SEDI.forEach(s => mxs[s.id] = scs[s.id]*2);
       const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta:scs[s.id], max:mxs[s.id]});
-      const id = newId(); _set('articoli', id, {nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
+      const id = newId(); _set('articoli', id, {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
     }));
     SEDI.forEach(s => _set('utenti', `tablet-${s.id}@demo.it`, {sede:s.id}));
     _set('config','consegne',{'Sal De Riso':'2026-11-26'});
@@ -889,7 +893,7 @@ function makeDemo(){
         REPARTI.forEach(rp => {
         const la = arts.filter(a => a.on[s.id].on && a.rep === rp.id);
         const dettaglio = la.map(a => a.dir ? {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:null, scorta:0, ordine:Math.floor(Math.random()*3), diretto:true}
-          : {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:g[a.id], scorta:a.scs[s.id], max:a.mxs[s.id], ordine:calcOrdine(a.scs[s.id], g[a.id], a.unita, a.mxs[s.id])});
+          : {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:g[a.id], scorta:a.scs[s.id], max:a.mxs[s.id], ordine:calcOrdine(a.scs[s.id], g[a.id], a.unita, a.mxs[s.id], LOTTI_SEED[a.nome]||0)});
         const righe = {}; dettaglio.forEach(r => righe[r.id] = r.diretto ? r.ordine : r.g);
         const chiuso = new Date(d); chiuso.setHours(23, 10 + si*7);
         _set('conteggi', s.id+'_'+data+'_'+rp.id, {sede:s.id, data, reparto:rp.id, stato:'chiuso', operatore:oper[(si+w)%4], righe, creato:chiuso.toISOString(), chiuso:chiuso.toISOString(), dettaglio});
