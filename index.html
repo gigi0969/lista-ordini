@@ -270,6 +270,9 @@ const GIORNI_LISTA = [0,4];
 const GIORNI_FORNITORE = {'Sanfelici':[0]};
 /* Giacenza alcolici: se attiva dal titolare, queste sezioni si contano (min/max) invece dell'ordine diretto */
 const SEZ_ALCOLICI = ['Vini bianchi','Vini rossi','Bollicine','Amari e distillati'];
+/* Sezioni in uso per sede (se una sede non è elencata le usa tutte) */
+const SEZ_SOLO = {'senzaglutine': ['Verdure','Pulizie','Salumi e formaggi','Bibite','Varie']};
+const sezInSede = (sez,sede) => !SEZ_SOLO[sede] || SEZ_SOLO[sede].includes(sez);
 const isDir = a => !!a.diretto && !((S.impostazioni||{}).giacenzaAlcolici && SEZ_ALCOLICI.includes(a.sezione));
 /* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
 const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
@@ -320,7 +323,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v24'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v25'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -723,7 +726,7 @@ function renderCatalogo(keep){
     <div class="small" style="margin-top:.3rem">Spenta: i ragazzi scrivono solo cosa ordinare. Accesa: contano le bottiglie e l'ordine lo calcola l'app con min e max (all'accensione, dove mancano, vengono messi min 1 e max 2).</div></div>
     <p class="muted small"><b>Min</b>: sotto questa giacenza si ordina. <b>Max</b>: la quantità da raggiungere con l'ordine (ordine = max − giacenza). Esempio Farina Lucia min 10, max 45: con 7 sacchi ordina 38, con 12 non ordina. Senza max l'ordine riporta solo al minimo; senza min e max l'articolo viene contato ma non ordinato. Tocca il nome per modificarlo.</p>
     <details class="det"><summary>Fornitori (${forn.length})</summary><ul class="forn">${forn.map(([f,l])=>`<li><span>${esc(f||'Senza fornitore')}</span><small class="muted">${l.length} articoli</small><button class="link" data-ren="${esc(f)}">Rinomina</button></li>`).join('')}</ul></details>
-    <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)}<span class="sez-n">${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
+    <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)}<span class="sez-n"><label class="chk" style="font-size:.85rem"><input type="checkbox" data-sezon="${esc(s)}"${list.some(a => { const p = S.catPending[a.id]; return p && p.on !== undefined ? p.on : attivo(a,sede); })?' checked':''}> In uso</label> · ${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
     <div class="bar" id="cbar"${np?'':' hidden'}><div class="bar-row"><span id="cpn">${np} articoli modificati</span><button class="btn" id="cann">Annulla</button><button class="btn primary" id="csave">Salva modifiche</button></div></div>`, keep);
 
   const pend = (id,k,v) => { S.catPending[id] = {...(S.catPending[id]||{}), [k]:v}; const n = Object.keys(S.catPending).length; $('#cbar').hidden = !n; $('#cpn').textContent = `${n} articoli modificati`; };
@@ -746,7 +749,10 @@ function renderCatalogo(keep){
   };
   const cat = $('#cat');
   cat.onclick = e => { if(e.target.closest('[data-edit]')) editArticolo(e.target.closest('.crow').dataset.id); };
-  cat.onchange = e => { if(e.target.matches('[data-on]')){ const row = e.target.closest('.crow'); row.classList.toggle('off', !e.target.checked); pend(row.dataset.id,'on',e.target.checked); } };
+  cat.onchange = e => {
+    if(e.target.matches('[data-sezon]')){ const on = e.target.checked;
+      e.target.closest('.sez').querySelectorAll('.crow').forEach(row => { row.classList.toggle('off', !on); row.querySelector('[data-on]').checked = on; pend(row.dataset.id,'on',on); }); return; }
+    if(e.target.matches('[data-on]')){ const row = e.target.closest('.crow'); row.classList.toggle('off', !e.target.checked); pend(row.dataset.id,'on',e.target.checked); } };
   cat.oninput = e => { if(e.target.matches('[data-sc]')) pend(e.target.closest('.crow').dataset.id,'scorta', num(e.target.value) ?? 0);
     if(e.target.matches('[data-mx]')) pend(e.target.closest('.crow').dataset.id,'max', num(e.target.value) ?? 0); };
   $('.forn').onclick = async e => {
@@ -806,7 +812,7 @@ async function seedCatalogo(){
   const batch = db.batch(); let ord = 0;
   SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => {
     const [nome,u,sc,mx] = item.split(':'); const scs = scorteSeed(sc), mxs = scorteSeed(mx); const dir = SEZ_DIRETTE[sez];
-    const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
+    const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
     batch.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
   }));
   await batch.commit(); toast(`Catalogo caricato: ${ord} articoli`,'ok');
@@ -829,7 +835,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v24';
+  const KEY = 'giacenze-demo-v25';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
@@ -880,7 +886,7 @@ function makeDemo(){
       const scs = sc ? scorteSeed(sc) : {}; if(!sc) SEDI.forEach(s => scs[s.id] = sez === 'Senza glutine' && s.id !== 'senzaglutine' ? 0 : def);
       const dir = SEZ_DIRETTE[sez]; if(dir) SEDI.forEach(s => scs[s.id] = 0);
       const mxs = mx ? scorteSeed(mx) : {}; if(!mx) SEDI.forEach(s => mxs[s.id] = scs[s.id]*2);
-      const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta:scs[s.id], max:mxs[s.id]});
+      const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(sez,s.id), scorta:scs[s.id], max:mxs[s.id]});
       const id = newId(); _set('articoli', id, {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
     }));
     SEDI.forEach(s => _set('utenti', `tablet-${s.id}@demo.it`, {sede:s.id}));
