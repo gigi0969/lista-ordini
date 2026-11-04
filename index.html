@@ -212,9 +212,9 @@ const SEED = [
  ['Liquori','Sanfelici','Bottiglia','Liquore pistacchio:Bottiglia:2,2,2,0:3,3,3,0|Limoncello:Bottiglia:2,2,2,0:3,3,3,0|Liquore crema babà:Bottiglia:2,2,2,0:3,3,3,0|Liquore liquirizia:Bottiglia:2,2,2,0:3,3,3,0|Viagroncello:Bottiglia:2,2,2,0:3,3,3,0|Meloncino:Bottiglia:2,2,2,0:3,3,3,0'],
  ['Caffetteria Bonetti','Bonetti','PZ','Caffè|Deca|Orzo|Zucchero|Zucchero di canna'],
  ['Bibite','Doreca','CT','Acqua gas 0,5|Acqua nat 0,5|Acqua personale gas|Acqua personale/bar nat|Birra 66 Moretti/Peroni|Coca 1,5 lt plastica|Coca lattina|Coca Zero lattina|Coca senza caffeina lattina|Coca vetro 33|Coca Zero vetro 33|Fanta vetro 33|Sprite vetro 33|Estathe lattina limone|Estathe lattina pesca'],
- ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla di Tropea:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Peperoni:Cassa|Pomodorini:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
+ ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla rossa:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Patate fresche:KG|Peperoni:Cassa|Pomodorini:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
  ['Salumi e formaggi','Le Bontà del Re','PZ','Bresaola|Capocollo Martina Franca|Ciccioli|Coppa Piacentina DOP|Gorgonzola IGP|Grattugiato|Mortadella IGP|Pecorino Romano DOP|Porchetta|Salame Napoli|Salsiccia|Speck|Uova (10)|Ventricina|Wurstel'],
- ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Cozze|Fagioli|Gamberetti|Gamberi Mazara|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panko|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale|Vongole'],
+ ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Cozze|Fagioli|Gamberetti|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panko|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale|Vongole'],
  ['Pulizie','Metro','PZ','Ajax bagno|Alcool|Candeggina|Detersivo filtri cappa|Detersivo lavabicchieri|Detersivo pavimenti|Detersivo piatti Svelto|Disinfettante|Disinfettante mani|Guanti lattice|Microfibre|Mocio|Napisan spray limone|Retine|Sacchi pattume|Sacchi trasparenti|Scopa|Sgrassatore|Smacchiatore|Spugnette|Vetril|Viakal|WC Net'],
  ['Materiale di consumo','CCM','PZ','Bobine|Brillantante|Carta igienica|Carta mani|Carta oleata|Detersivo lavastoviglie|Sacchetti carta|Sapone mani|Shopper|Tovaglioli sala'],
  ['Centro Cassa','Centro Cassa','CT','Rotoli grandi|Rotoli piccoli']
@@ -317,7 +317,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v21'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v22'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -340,12 +340,17 @@ async function onAuth(u){
   }
   try{ const cf = await db.collection('config').doc('consegne').get(); S.consegne = cf.exists ? cf.data() : {}; }catch(e){ S.consegne = {}; }
   try{ const im = await db.collection('config').doc('impostazioni').get(); S.impostazioni = im.exists ? im.data() : {}; }catch(e){ S.impostazioni = {}; }
-  primo = true;
-  unsubArt = db.collection('articoli').onSnapshot(qs => {
+  primo = true; let tentativi = 0;
+  const ascolta = () => { unsubArt = db.collection('articoli').onSnapshot(qs => {
     S.articoli = qs.docs.map(d => ({id:d.id, ...d.data()})).sort(sortArt);
     if(primo){ primo=false; shell(); route(); }
     else if(S.view==='catalogo' && !Object.keys(S.catPending).length) renderCatalogo(true);
-  }, err => { app.innerHTML = `<p class="loading" style="text-align:center">Accesso al database non riuscito: ${esc(err.message)}</p>`; });
+  }, async err => {
+    /* Problema noto con più schede aperte: riprova da solo prima di mostrare l'errore */
+    if(tentativi++ < 3){ try{ await auth.currentUser.getIdToken(true); }catch(e){} setTimeout(ascolta, 1500); return; }
+    app.innerHTML = `<div class="login"><h1>Errore di accesso</h1><p>${esc(err.message)}</p><p>Chiudi le altre schede dell'app e riprova.</p><button class="btn primary big" onclick="location.reload()">Riprova</button><button class="link" style="margin-top:1rem" onclick="auth.signOut()">Esci</button></div>`;
+  }); };
+  ascolta();
 }
 
 const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
@@ -820,7 +825,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v21';
+  const KEY = 'giacenze-demo-v22';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
@@ -910,7 +915,7 @@ async function boot(){
     await loadScript(b+'firebase-firestore-compat.js');
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth(); db = firebase.firestore();
-    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    db.enablePersistence().catch(()=>{});
     FV = firebase.firestore.FieldValue;
   }
   auth.onAuthStateChanged(onAuth);
