@@ -317,7 +317,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v22'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v23'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -454,7 +454,7 @@ function renderConta(){
   $('#pronti').onclick = e => { const b = e.target.closest('[data-anticipo]'); if(b) ordineAnticipato(+b.dataset.anticipo); };
 }
 
-function footSezione(sec, completa, mancano){
+function footSezione(sec, completa, mancano, compilati){
   const c = S.conta, i = +sec.dataset.i, [s, list] = S.contaGroups[i], foot = $('#foot-'+i);
   const inv = c.inviati && c.inviati[s];
   sec.classList.toggle('locked', !!inv);
@@ -462,7 +462,7 @@ function footSezione(sec, completa, mancano){
   const forn = [...new Set(list.map(a => a.fornitore || 'Senza fornitore'))].join(', ');
   const haDir = list.some(a => isDir(a) && c.righe[a.id] > 0);
   if(inv){ const t = new Date(inv); foot.innerHTML = `<span class="pill ok">Ordine ${esc(forn)} inviato alle ${t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</span><button class="link" data-unlock="${i}">Modifica</button>`; }
-  else if(list.some(a => !isDir(a)) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
+  else if((list.some(a => !isDir(a)) && compilati > 0) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
   else foot.innerHTML = '';
   return false;
 }
@@ -507,7 +507,7 @@ function updateCounts(){
     const rows = sec.querySelectorAll('.row:not([data-dir])'); let d=0;
     rows.forEach(r => { if(typeof c.righe[r.dataset.id] === 'number') d++; });
     tot += rows.length; done += d;
-    if(footSezione(sec, d === rows.length, rows.length - d)) pronti.push(+sec.dataset.i);
+    if(footSezione(sec, d === rows.length, rows.length - d, d)) pronti.push(+sec.dataset.i);
     const ch = $('#chip-'+sec.dataset.i);
     if(!rows.length){ const n = [...sec.querySelectorAll('.row[data-dir]')].filter(r => c.righe[r.dataset.id] > 0).length;
       sec.querySelector('.sez-n').textContent = `ordine diretto, ${n} righe`; ch.querySelector('b').textContent = 'ordine'; ch.classList.add('full'); return; }
@@ -516,7 +516,7 @@ function updateCounts(){
   });
   const miss = tot-done, m = $('#mancanti');
   $('#pf').style.width = (tot ? done/tot*100 : 0) + '%';
-  m.textContent = !tot ? 'Solo ordini: scrivi quello che serve' : miss ? `${miss} non compilati` : 'Tutto compilato'; m.className = miss ? '' : 'okt';
+  m.textContent = !tot ? 'Solo ordini: scrivi quello che serve' : `Giacenza: ${done} di ${tot} inseriti`; m.className = 'okt';
   const pr = $('#pronti');
   if(pr) pr.innerHTML = miss ? pronti.filter(i => S.contaGroups[i][1].some(a => !isDir(a))).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
     return `<button class="btn primary" data-anticipo="${i}">Invia ordine ${esc(forn)}</button>`; }).join('') : '';
@@ -825,7 +825,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v22';
+  const KEY = 'giacenze-demo-v23';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
