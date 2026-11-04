@@ -265,6 +265,9 @@ const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+
 /* Giorni delle liste: domenica (0) e giovedì (4). Sanfelici solo la domenica (ordine poi girato martedì/mercoledì). */
 const GIORNI_LISTA = [0,4];
 const GIORNI_FORNITORE = {'Sanfelici':[0]};
+/* Giacenza alcolici: se attiva dal titolare, queste sezioni si contano (min/max) invece dell'ordine diretto */
+const SEZ_ALCOLICI = ['Vini bianchi','Vini rossi','Bollicine','Amari e distillati'];
+const isDir = a => !!a.diretto && !((S.impostazioni||{}).giacenzaAlcolici && SEZ_ALCOLICI.includes(a.sezione));
 /* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
 const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
 function listaPrima(consegna){ const x = new Date(consegna+'T12:00:00'); do { x.setDate(x.getDate()-1); } while(!GIORNI_LISTA.includes(x.getDay())); return ymd(x); }
@@ -314,7 +317,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v20'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v21'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -336,6 +339,7 @@ async function onAuth(u){
     }
   }
   try{ const cf = await db.collection('config').doc('consegne').get(); S.consegne = cf.exists ? cf.data() : {}; }catch(e){ S.consegne = {}; }
+  try{ const im = await db.collection('config').doc('impostazioni').get(); S.impostazioni = im.exists ? im.data() : {}; }catch(e){ S.impostazioni = {}; }
   primo = true;
   unsubArt = db.collection('articoli').onSnapshot(qs => {
     S.articoli = qs.docs.map(d => ({id:d.id, ...d.data()})).sort(sortArt);
@@ -380,7 +384,7 @@ async function openSede(sede,data){
   main().onclick = e => { const b = e.target.closest('[data-r]'); if(b) openConta(sede, data, b.dataset.r); };
 }
 function statoConta(sn, sede, rep, data){
-  const gArts = S.articoli.filter(a => attivo(a,sede) && !a.diretto && repDi(a)===rep && inGiorno(a,data));
+  const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
   if(!sn.exists) return {stato:'Da fare', cls:'todo', info:`${gArts.length} articoli da contare`};
   const c = sn.data();
   if(c.stato==='chiuso') return {stato:'Chiusa', cls:'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare`};
@@ -399,9 +403,9 @@ async function openConta(sede,data,rep){
 
 function rowHtml(a,v){
   const done = typeof v === 'number';
-  return `<div class="row${done?' done':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${a.diretto?' data-dir':''}>
+  return `<div class="row${done?' done':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${isDir(a)?' data-dir':''}>
     <div class="r-name">${esc(a.nome)}<small>${esc(a.fornitore||'')}</small></div>
-    <div class="stepper"><button type="button" data-act="-" aria-label="Meno">−</button><input inputmode="decimal" autocomplete="off" value="${done?fmtN(v):''}" aria-label="${a.diretto?'Da ordinare':'Giacenza'} ${esc(a.nome)}"><button type="button" data-act="+" aria-label="Più">+</button></div>
+    <div class="stepper"><button type="button" data-act="-" aria-label="Meno">−</button><input inputmode="decimal" autocomplete="off" value="${done?fmtN(v):''}" aria-label="${isDir(a)?'Da ordinare':'Giacenza'} ${esc(a.nome)}"><button type="button" data-act="+" aria-label="Più">+</button></div>
     <span class="u">${esc(a.unita||'')}</span></div>`;
 }
 
@@ -415,7 +419,7 @@ function renderConta(){
     <label class="fld">Chi sta contando<input id="oper" value="${esc(c.operatore)}" placeholder="Nome e cognome" autocomplete="off"></label></div>
   <div class="rail"><div class="chips">${groups.map(([s],i)=>`<button class="chip" data-go="${i}" id="chip-${i}">${esc(s)}<b></b></button>`).join('')}</div>
     <input id="q" class="search" type="search" placeholder="Cerca articolo" autocomplete="off"></div>
-  <div id="lista">${groups.map(([s,list],i)=>`<section class="sez" id="sez-${i}" data-i="${i}"><h2>${esc(s)}<span class="sez-n"></span></h2>${list.every(a=>a.diretto)?'<p class="note warn" style="margin:0;border-radius:0">Qui scrivi quanto ordinare, non la giacenza. Lascia vuoto ciò che non serve.</p>':''}${list.map(a=>rowHtml(a,c.righe[a.id])).join('')}<div class="sez-foot" id="foot-${i}"></div></section>`).join('')}</div>
+  <div id="lista">${groups.map(([s,list],i)=>`<section class="sez" id="sez-${i}" data-i="${i}"><h2>${esc(s)}<span class="sez-n"></span></h2>${list.every(a=>isDir(a))?'<p class="note warn" style="margin:0;border-radius:0">Qui scrivi quanto ordinare, non la giacenza. Lascia vuoto ciò che non serve.</p>':''}${list.map(a=>rowHtml(a,c.righe[a.id])).join('')}<div class="sez-foot" id="foot-${i}"></div></section>`).join('')}</div>
   <div class="bar"><div class="prog"><i id="pf"></i></div><div class="bar-row"><span id="mancanti"></span><span id="saved" class="muted small"></span><span id="pronti" class="acts"></span><button class="btn primary" id="chiudi">Chiudi lista e invia ordini</button></div></div>`);
   updateCounts();
 
@@ -451,23 +455,23 @@ function footSezione(sec, completa, mancano){
   sec.classList.toggle('locked', !!inv);
   sec.querySelectorAll('.stepper input, .stepper button').forEach(el => el.disabled = !!inv);
   const forn = [...new Set(list.map(a => a.fornitore || 'Senza fornitore'))].join(', ');
-  const haDir = list.some(a => a.diretto && c.righe[a.id] > 0);
+  const haDir = list.some(a => isDir(a) && c.righe[a.id] > 0);
   if(inv){ const t = new Date(inv); foot.innerHTML = `<span class="pill ok">Ordine ${esc(forn)} inviato alle ${t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</span><button class="link" data-unlock="${i}">Modifica</button>`; }
-  else if(list.some(a => !a.diretto) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
+  else if(list.some(a => !isDir(a)) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
   else foot.innerHTML = '';
   return false;
 }
 
 function righeOrdine(c, list){
   return list.map(a => { const base = {id:a.id, nome:a.nome, unita:a.unita||'', sezione:a.sezione||'', fornitore:a.fornitore||''};
-    if(a.diretto){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
+    if(isDir(a)){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
     const g = c.righe[a.id], sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
     return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx)}; });
 }
 
 async function ordineAnticipato(i){
   const c = S.conta, [s, list] = S.contaGroups[i];
-  const vuoti = list.filter(a => !a.diretto && typeof c.righe[a.id] !== 'number');
+  const vuoti = list.filter(a => !isDir(a) && typeof c.righe[a.id] !== 'number');
   const ord = righeOrdine(c, list).filter(r => r.ordine > 0);
   const groups = [...groupBy(ord, r => r.fornitore || 'Senza fornitore')];
   const segna = () => { c.inviati[s] = new Date().toISOString(); updateCounts(); clearTimeout(saveT); saveBozza(); };
@@ -509,7 +513,7 @@ function updateCounts(){
   $('#pf').style.width = (tot ? done/tot*100 : 0) + '%';
   m.textContent = !tot ? 'Solo ordini: scrivi quello che serve' : miss ? `${miss} non compilati` : 'Tutto compilato'; m.className = miss ? '' : 'okt';
   const pr = $('#pronti');
-  if(pr) pr.innerHTML = miss ? pronti.filter(i => S.contaGroups[i][1].some(a => !a.diretto)).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
+  if(pr) pr.innerHTML = miss ? pronti.filter(i => S.contaGroups[i][1].some(a => !isDir(a))).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
     return `<button class="btn primary" data-anticipo="${i}">Invia ordine ${esc(forn)}</button>`; }).join('') : '';
 }
 
@@ -658,7 +662,7 @@ async function renderAnalisi(){
     weeks.push({data:ch[i].data, cons});
   }
   const show = weeks.slice(-6);
-  const rows = S.articoli.filter(a=>attivo(a,sede) && !a.diretto).map(a => {
+  const rows = S.articoli.filter(a=>attivo(a,sede) && !isDir(a)).map(a => {
     const vals = weeks.map(w => w.cons[a.id]);
     const def = vals.filter(v => typeof v==='number');
     const last = vals[vals.length-1];
@@ -694,7 +698,7 @@ function catRow(a,sede){
   const mx = p.max !== undefined ? p.max : (Number(s.max) > 0 ? Number(s.max) : null);
   return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}</small></div>
     <label class="chk"><input type="checkbox" data-on${on?' checked':''}> In uso</label>
-    ${a.diretto ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
+    ${isDir(a) ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
 }
 
 function renderCatalogo(keep){
@@ -707,6 +711,8 @@ function renderCatalogo(keep){
   const forn = [...groupBy(S.articoli, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
   const np = Object.keys(S.catPending).length;
   view('catalogo', `<div class="vhead"><h1>Catalogo e scorte</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button></div>
+    <div class="note warn"><label class="chk"><input type="checkbox" id="galc"${(S.impostazioni||{}).giacenzaAlcolici?' checked':''}> <b>Giacenza su vini, bollicine, amari e distillati</b></label>
+    <div class="small" style="margin-top:.3rem">Spenta: i ragazzi scrivono solo cosa ordinare. Accesa: contano le bottiglie e l'ordine lo calcola l'app con min e max (all'accensione, dove mancano, vengono messi min 1 e max 2).</div></div>
     <p class="muted small"><b>Min</b>: sotto questa giacenza si ordina. <b>Max</b>: la quantità da raggiungere con l'ordine (ordine = max − giacenza). Esempio Farina Lucia min 10, max 45: con 7 sacchi ordina 38, con 12 non ordina. Senza max l'ordine riporta solo al minimo; senza min e max l'articolo viene contato ma non ordinato. Tocca il nome per modificarlo.</p>
     <details class="det"><summary>Fornitori (${forn.length})</summary><ul class="forn">${forn.map(([f,l])=>`<li><span>${esc(f||'Senza fornitore')}</span><small class="muted">${l.length} articoli</small><button class="link" data-ren="${esc(f)}">Rinomina</button></li>`).join('')}</ul></details>
     <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)}<span class="sez-n">${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
@@ -718,6 +724,18 @@ function renderCatalogo(keep){
     S.catPending = {}; S.catSede = e.target.value; renderCatalogo(true);
   };
   $('#nuovo').onclick = () => editArticolo(null);
+  $('#galc').onchange = async e => {
+    const on = e.target.checked;
+    if(!await ask(on ? 'Attivare la giacenza su vini, bollicine, amari e distillati in tutte le pizzerie?' : 'Tornare all\'ordine diretto per vini, bollicine, amari e distillati?')){ e.target.checked = !on; return; }
+    S.impostazioni = {...(S.impostazioni||{}), giacenzaAlcolici: on};
+    await db.collection('config').doc('impostazioni').set(S.impostazioni);
+    if(on){ const b = db.batch(); let n = 0;
+      S.articoli.filter(a => SEZ_ALCOLICI.includes(a.sezione)).forEach(a => { const u = {};
+        SEDI.forEach(s => { if(!(scortaDi(a,s.id) > 0) && !(maxDi(a,s.id) > 0)){ u[`sedi.${s.id}.scorta`] = 1; u[`sedi.${s.id}.max`] = 2; } });
+        if(Object.keys(u).length){ b.update(db.collection('articoli').doc(a.id), u); n++; } });
+      if(n) await b.commit(); }
+    toast(on ? 'Giacenza alcolici attivata' : 'Alcolici tornati a ordine diretto','ok'); renderCatalogo(true);
+  };
   const cat = $('#cat');
   cat.onclick = e => { if(e.target.closest('[data-edit]')) editArticolo(e.target.closest('.crow').dataset.id); };
   cat.onchange = e => { if(e.target.matches('[data-on]')){ const row = e.target.closest('.crow'); row.classList.toggle('off', !e.target.checked); pend(row.dataset.id,'on',e.target.checked); } };
@@ -802,7 +820,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v20';
+  const KEY = 'giacenze-demo-v21';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
