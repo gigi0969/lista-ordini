@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E4A32">
+<title>Lista ordini Teperino</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EDF0EB;--card:#FFFFFF;--ink:#1D2A22;--muted:#5C695F;--line:#D3D9D1;--soft:#F6F8F5;--basil:#2D6A48;--basil-d:#1E4A32;--basil-s:#DCEADF;--tom:#B03D29;--tom-s:#F6DFD9;--amb:#8F6708;--amb-s:#F4E8C6;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+h1,h2,h3{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;line-height:1.1;margin:0}
+h1{font-size:2rem}h2{font-size:1.4rem}h3{font-size:1.3rem}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--basil);outline-offset:2px}
+.muted{color:var(--muted)}.small{font-size:.875rem}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem 1.1rem;background:var(--basil-d);color:#fff}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:700}
+.brand span{font-weight:500;font-size:1rem;opacity:.75;margin-left:.6rem}
+.who{display:flex;align-items:center;gap:.9rem;font-size:.95rem}
+.top .link{color:#fff}
+.tabs{display:flex;gap:.2rem;overflow-x:auto;padding:0 .8rem;background:var(--card);border-bottom:1px solid var(--line);scrollbar-width:none}
+.tabs button{border:0;background:none;padding:.8rem .8rem .6rem;font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--basil)}
+main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:.5rem 1.1rem;border:1.5px solid var(--line);background:var(--card);border-radius:8px;font-weight:700;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--basil);border-color:var(--basil);color:#fff}
+.btn.danger{color:var(--tom);border-color:var(--tom-s)}
+.btn.big{min-height:56px;font-size:1.1rem;width:100%}
+.btn:disabled{opacity:.5;cursor:default}
+.link{background:none;border:0;padding:0;color:var(--basil);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.back{margin-bottom:.9rem}
+.loading,.empty{padding:2rem 0;color:var(--muted)}
+
+.login{max-width:420px;margin:12vh auto;padding:0 1.2rem}
+.login h1{font-size:3.2rem;color:var(--basil-d)}
+.login p{margin:.2rem 0 1.6rem;color:var(--muted)}
+.fld{display:flex;flex-direction:column;gap:.3rem;font-size:.9rem;color:var(--muted);margin-bottom:1rem}
+.fld input,.fld select,.sel,.search,.uform input{min-height:48px;padding:.5rem .75rem;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:1rem;width:100%}
+.fld.inline{flex-direction:row;align-items:center;margin:0}.fld.inline input{width:auto}
+.sel{width:auto}
+.err{color:var(--tom);min-height:1.4em}
+.vhead{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem 1rem;margin-bottom:1rem}
+.vhead h1{margin-right:auto}
+
+.conta-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1rem}
+.conta-head .fld{margin:0;flex:0 1 320px;min-width:240px}
+.rail{position:sticky;top:0;z-index:5;background:var(--bg);margin:0 -1rem;padding:.6rem 1rem;border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.55rem;scrollbar-width:none}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:6px;padding:.3rem .65rem;font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:600;cursor:pointer}
+.chip b{font-family:'Atkinson Hyperlegible',sans-serif;font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.3rem}
+.chip.full{background:var(--basil-s);border-color:var(--basil)}
+
+.sez{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:1rem;scroll-margin-top:135px;overflow:hidden}
+.sez h2{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--soft)}
+.sez-n{font-family:'Atkinson Hyperlegible',sans-serif;font-size:.85rem;color:var(--muted);font-weight:400}
+.row{display:grid;grid-template-columns:1fr auto 2.4rem;align-items:center;gap:.6rem;padding:.45rem .8rem .45rem .9rem;border-bottom:1px solid #E8ECE6;border-left:5px solid transparent;transition:background .25s}
+.row:last-child{border-bottom:0}
+.row.done{border-left-color:var(--basil)}
+.row.flash{background:var(--tom-s);border-left-color:var(--tom)}
+.r-name{font-weight:700;line-height:1.25;min-width:0}
+.r-name small{display:block;font-weight:400;font-size:.8rem;color:var(--muted)}
+.u{font-size:.85rem;color:var(--muted);font-weight:700}
+.stepper{display:flex;align-items:center}
+.stepper button{width:50px;height:50px;border:1.5px solid var(--line);background:var(--bg);font-size:1.6rem;line-height:1;cursor:pointer;touch-action:manipulation}
+.stepper button:first-child{border-radius:8px 0 0 8px}
+.stepper button:last-child{border-radius:0 8px 8px 0}
+.stepper input{width:4.2rem;height:50px;border:1.5px solid var(--line);border-left:0;border-right:0;border-radius:0;text-align:center;font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;background:var(--card)}
+.row.done .stepper input{background:var(--basil-s)}
+
+.bar{position:sticky;bottom:0;z-index:5;margin:1.2rem -1rem 0;padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line)}
+.sez-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--soft)}
+.sez-foot:empty{display:none}
+.sez.locked .stepper{opacity:.55}
+.prog{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
+.prog i{display:block;height:100%;width:0;background:var(--basil);transition:width .3s}
+.bar-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.bar-row .btn.primary{margin-left:auto}
+#mancanti{font-weight:700;color:var(--tom)}#mancanti.okt{color:var(--basil)}
+
+.sedi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.8rem}
+.sede-card,.sede-btn{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;text-align:left;padding:1rem;background:var(--card);border:1.5px solid var(--line);border-left:6px solid var(--line);border-radius:10px;cursor:pointer}
+.sede-card.ok{border-left-color:var(--basil)}.sede-card.wip{border-left-color:var(--amb)}.sede-card.todo{border-left-color:var(--tom)}
+.sc-name,.sede-btn{font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:600}
+.sede-btn{min-height:90px;justify-content:center;border-left-color:var(--basil)}
+.sc-info{font-size:.9rem;color:var(--muted)}
+.pill{font-size:.8rem;font-weight:700;padding:.15rem .55rem;border-radius:4px}
+.pill.ok{background:var(--basil-s);color:var(--basil-d)}.pill.wip{background:var(--amb-s);color:var(--amb)}.pill.todo{background:var(--tom-s);color:var(--tom)}
+
+.h2{margin:1.4rem 0 .8rem}
+.ordini{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.8rem}
+.ord{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem;display:flex;flex-direction:column}
+.ord header{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:.5rem}
+.ord ul{list-style:none;margin:0 0 1rem;padding:0;flex:1}
+.ord li{padding:.3rem 0;border-bottom:1px dashed #E3E8E1}
+.ord li b{display:inline-block;min-width:4.4rem;font-variant-numeric:tabular-nums}
+.ord-acts,.acts{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.acts .sp{flex:1}
+.note{padding:.7rem 1rem;border-radius:8px;margin:0 0 1rem}
+.note.warn{background:var(--amb-s);color:#5E4405}
+.det{margin-top:1.2rem;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.1rem 1rem}
+.det summary{cursor:pointer;padding:.8rem 0;font-weight:700}
+
+.tblw{overflow-x:auto;margin:0 0 1rem}
+.tbl{width:100%;border-collapse:collapse;font-size:.95rem;background:var(--card)}
+.tbl th{text-align:left;font-size:.8rem;color:var(--muted);font-weight:700;padding:.5rem .6rem;border-bottom:2px solid var(--line);white-space:nowrap}
+.tbl td{padding:.5rem .6rem;border-bottom:1px solid #E8ECE6}
+.tbl .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl tr.grp td{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.1rem;background:var(--soft)}
+.tbl.click tbody tr{cursor:pointer}.tbl.click tbody tr:hover{background:var(--soft)}
+.tbl tr.neg td:first-child{box-shadow:inset 4px 0 var(--tom)}.tbl tr.alto td:first-child{box-shadow:inset 4px 0 var(--amb)}
+.tag{font-style:normal;font-size:.72rem;font-weight:700;padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;white-space:nowrap}
+.tag.red{background:var(--tom-s);color:var(--tom)}.tag.amb{background:var(--amb-s);color:var(--amb)}
+.kpis{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}
+.kpis div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.6rem .9rem}
+.kpis b{font-size:1.4rem;margin-right:.3rem}
+.kpis .red b{color:var(--tom)}.kpis .amb b{color:var(--amb)}
+
+.chk{display:inline-flex;align-items:center;gap:.4rem;font-size:.95rem;cursor:pointer}
+.chk input{width:22px;height:22px;accent-color:var(--basil)}
+.crow{grid-template-columns:1fr auto auto}
+.mm{display:flex;gap:.5rem}
+@media(max-width:520px){.crow{grid-template-columns:1fr auto}.crow .chk{grid-column:2;grid-row:1}.crow .mm{grid-column:1/-1;justify-content:flex-end}}
+.crow.off .r-name{opacity:.45}
+.sc{display:flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--muted)}
+.sc input{width:4.6rem;min-height:44px;border:1.5px solid var(--line);border-radius:8px;text-align:center;font-size:1.1rem;font-weight:700;background:var(--card)}
+.nm{color:var(--ink);text-decoration:none;text-align:left;font-weight:700}
+.forn{list-style:none;padding:0;margin:0 0 1rem}
+.forn li{display:flex;gap:.8rem;align-items:baseline;padding:.45rem 0;border-bottom:1px solid #E8ECE6}
+.forn li span{flex:1;font-weight:700}
+.uform{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.uform input{flex:1 1 260px;width:auto}
+
+.modal{position:fixed;inset:0;z-index:20;background:rgba(20,32,25,.45);display:flex;align-items:flex-end;justify-content:center;padding:1rem}
+.sheet{background:var(--card);border-radius:12px;padding:1.3rem;width:100%;max-width:480px;max-height:90vh;overflow:auto}
+.sheet h2{margin-bottom:1rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(6rem + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:#fff;padding:.7rem 1.1rem;border-radius:8px;font-weight:700;max-width:90vw;text-align:center}
+.toast.err{background:var(--tom)}.toast.ok{background:var(--basil-d)}
+@media(min-width:700px){.modal{align-items:center}}
+@media(max-width:420px){.stepper button{width:42px;height:46px}.stepper input{width:3.4rem;height:46px}.row{gap:.4rem}.brand span{display:none}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="app"><p class="loading" style="text-align:center">Caricamento…</p></div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ============ CONFIGURAZIONE ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyB8u_ISw0l47xyZ7m7IM5GW39xSMSyrFwE",
+  authDomain: "lista-teperino.firebaseapp.com",
+  projectId: "lista-teperino",
+  storageBucket: "lista-teperino.firebasestorage.app",
+  messagingSenderId: "266693687320",
+  appId: "1:266693687320:web:183bd17da43333ef486b6d"
+};
+const ADMIN_EMAILS = ['ltepe69@gmail.com'];
+/* Gli ordini vengono mandati a questo numero WhatsApp (titolare), che poi li gira ai fornitori.
+   Formato internazionale senza + e senza spazi, es. 393331234567. Vuoto = WhatsApp chiede a chi inviare. */
+const WHATSAPP_ORDINI = '393281626931';
+const NOME_ORDINI = 'Luigi';
+const waUrl = t => `https://wa.me/${WHATSAPP_ORDINI}?text=${encodeURIComponent(t)}`;
+/* Se il link a WhatsApp non si apre (anteprime che bloccano i link), mostra il testo da copiare */
+document.addEventListener('click', e => {
+  const l = e.target.closest('a[href^="https://wa.me/"]'); if(!l) return;
+  e.preventDefault();
+  if(l.hasAttribute('data-sent')){ l.textContent = 'Inviato ✓ (tocca per rimandare)'; l.classList.remove('primary'); }
+  const testo = decodeURIComponent((l.getAttribute('href').split('?text=')[1]) || '');
+  let w = null; try{ w = window.open(l.href, '_blank'); }catch(err){}
+  if(w) return;
+  setTimeout(() => modal(`<h2>WhatsApp non si è aperto</h2>
+    <p class="muted" style="margin:0 0 .8rem">Copia il testo e incollalo nella chat WhatsApp con ${esc(NOME_ORDINI)}.</p>
+    <textarea id="watxt" readonly style="width:100%;min-height:220px;padding:.6rem;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:.95rem">${esc(testo)}</textarea>
+    <div class="acts" style="margin-top:.8rem"><span class="sp"></span><button class="btn" data-close>Chiudi</button><button class="btn primary" id="wacp">Copia testo</button></div>`, m => {
+      const ta = m.querySelector('#watxt');
+      m.querySelector('#wacp').onclick = () => { ta.select(); let ok = false;
+        try{ ok = document.execCommand('copy'); }catch(err){}
+        if(navigator.clipboard) navigator.clipboard.writeText(testo).then(()=>toast('Testo copiato, ora incollalo su WhatsApp','ok'), ()=> toast(ok ? 'Testo copiato, ora incollalo su WhatsApp' : 'Tieni premuto sul testo per copiarlo', ok ? 'ok' : 'err'));
+        else toast(ok ? 'Testo copiato, ora incollalo su WhatsApp' : 'Tieni premuto sul testo per copiarlo', ok ? 'ok' : 'err'); };
+    }), 350);
+});
+const SEDI = [
+  {id:'gramsci',      nome:'Teperino 2.0 Gramsci'},
+  {id:'amendola',     nome:'Teperino 3.0 Amendola'},
+  {id:'formigine',    nome:'Teperino Formigine'},
+  {id:'senzaglutine', nome:'Teperino Senza Glutine'}
+];
+const UNITA = ['PZ','CT','Cassa','KG','LT','CF','Sacco','Latta','Busta','Secchio','Bottiglia'];
+
+/* Catalogo iniziale: [sezione, fornitore, unità, articoli].
+   "Nome:UNITÀ" forza un'unità diversa; "Nome:UNITÀ:g,a,f,s" imposta la scorta per Gramsci, Amendola, Formigine, Senza Glutine. */
+const SEED = [
+ ['Sanfelici','Sanfelici','PZ','Farina Lucia:Sacco:15,15,10,0:45,45,45,0|Farina Tipo 1:Sacco:3,3,2,0:3,3,2,0|Farina integrale:Sacco:2,2,2,0:2,2,2,0|Farina multicereali:Sacco:1,1,2,0:1,1,2,0|Pizza Plus:Sacco:5,5,5,0:13,13,13,0|Spolverina:Sacco:5,5,2,0:8,6,7,0|Pelati Solania:CT:0,0,0,0:0,0,0,0|Pelati S.Felici:Latta:12,12,12,0:30,30,25,0|Pelati Gustarosso:Latta:5,5,5,0:5,16,5,0|Tonno 385 gr Sanfelici:Latta:4,4,3,0:12,6,11,0|Acciughe 730 gr:Latta:3,3,3,0:12,3,13,0|Porcini:Latta:3,3,3,0:9,9,4,0|Funghi:Busta:6,4,3,0:10,10,6,0|Cotto:PZ:1,1,1,0:3,3,2,0|Crudo Parma:PZ:1,1,1,0:1,1,1,0|Carciofi gambo:PZ:0,0,0,0:0,0,0,0|Capperi:PZ:1,1,2,0:1,1,2,0|Soleggiati:Latta:3,3,3,0:5,5,4,0|Spianata:PZ:1,1,1,0:3,3,1,0|Pancetta:PZ:1,1,1,0:1,1,1,0|Crema di zucca:Latta:3,3,3,0:12,12,12,0|Crema tartufata:Latta:3,3,3,0:6,6,11,0|Maremix:Secchio:1,1,1,0:1,1,1,0|Crema di pecorino:Latta:2,2,2,0:6,6,6,0|Piennolo:Latta:3,3,3,0:20,20,7,0|Friarielli:Latta:3,3,3,0:12,12,10,0|Stracci:PZ:3,3,3,0:5,5,3,0|Legna:PZ:5,5,5,0:40,40,40,0|Aceto glass:Bottiglia:2,2,2,0:4,4,2,0|Olio EVO 5 lt:Bottiglia:1,1,1,0:2,2,1,0|Olio EVO 500 ml:Bottiglia:5,5,5,0:12,12,18,0|Olio piccante 250 ml:Bottiglia:5,5,5,0:24,24,12,0|Origano:PZ:1,1,0,0:1,1,0,0'],
+ ['Casse e fusti','Doreca','CT','Coca vetro 1 lt|Acqua naturale Panna|Acqua frizzante S.Pellegrino|Vino:PZ|Birra rossa:PZ|Birra bionda:PZ|Birra weisse:PZ|Gas:PZ'],
+ ['Vini bianchi','Doreca','PZ','Passerina|Ribolla Gialla|Lugana in anfora|Gewurztraminer|Ceretto Blangé Arneis Langhe|Greco di Tufo|Falanghina|Pignoletto secco frizzante'],
+ ['Vini rossi','Doreca','PZ','Amarone della Valpolicella|Chianti Classico|Sangiovese Sup. Romagna|Lambrusco Grasparossa di Castelvetro'],
+ ['Bollicine','Doreca','PZ','Champagne Perrier Jouet Grand Brut|Champagne Veuve Clicquot Cuvée Brut|Champagne Moet & Chandon Reserve Brut|Franciacorta Bellavista Alma Cuvée Brut|Franciacorta Contadi Castaldi Brut|Franciacorta Contadi Castaldi Rosé|Plazzer Millesimato Brut Trento|Bisol Jeio Prosecco Vald. Extra Dry|Prosecco Il Roggio Treviso Brut'],
+ ['Birre','Doreca','PZ','Corona Extra|Alhambra Reserva 1925|Alhambra Reserva Roja|Ichnusa Non Filtrata|Peroni Nastro Azzurro Analcolica|Kloster Scheyern Weisse Hell|Kloster Scheyern Weisse Dunkel|Kloster Scheyern Gold Dunkel|Kloster Scheyern Gold Hell|Bad Brewer Ipa|Bad Brewer Mr White Blanche|Amarcord 100% Italiana|Il Mastio Bionica Pale Ale|Il Mastio Biosfera Blonde Ale|Raffo Lavorazione Grezza|San Miguel senza glutine'],
+ ['Amari e distillati','Doreca','PZ','Amaro del Capo|Aperol|Averna|Baileys|Borsci S.Marzano|Branca Menta|Cynar|Disaronno|Fernet Branca|Grand Marnier|Grappa barricata|Grappa morbida|Grappa secca|Jack Daniel\'s|Jagermeister|Jefferson|Limoncione|Lucano|Montenegro|Nocino|Passito|Rhum Pampero|Sambuca|Tequila|Unicum|Vecchia Romagna|Zacapa|Whisky|Vodka'],
+ ['Dolci Sal De Riso','Sal De Riso','CT','Cassata:CT:1,1,1,0:3,3,3,0|Cheese cake:CT:1,1,1,0:3,3,3,0|Chicco:CT:1,1,1,0:3,3,3,0|Delizia:CT:1,1,1,0:3,3,3,0|Etna:CT:1,1,1,0:3,3,3,0|Oro Puro:CT:1,1,1,0:3,3,3,0|Panarea:CT:1,1,1,0:3,3,3,0|Ricotta e pere:CT:1,1,1,0:3,3,3,0'],
+ ['Per i dolci','Metro','PZ','Panna spray|Cacao|Zucchero a velo|Zucchero Dietor|Topping cioccolato|Topping frutti di bosco|Tovaglioli piccoli neri'],
+ ['Liquori','Sanfelici','Bottiglia','Liquore pistacchio:Bottiglia:2,2,2,0:3,3,3,0|Limoncello:Bottiglia:2,2,2,0:3,3,3,0|Liquore crema babà:Bottiglia:2,2,2,0:3,3,3,0|Liquore liquirizia:Bottiglia:2,2,2,0:3,3,3,0|Viagroncello:Bottiglia:2,2,2,0:3,3,3,0|Meloncino:Bottiglia:2,2,2,0:3,3,3,0'],
+ ['Caffetteria Bonetti','Bonetti','PZ','Caffè|Deca|Orzo|Zucchero|Zucchero di canna'],
+ ['Bibite','Doreca','CT','Acqua gas 0,5|Acqua nat 0,5|Acqua personale gas|Acqua personale/bar nat|Birra 66 Moretti/Peroni|Coca 1,5 lt plastica|Coca lattina|Coca Zero lattina|Coca senza caffeina lattina|Coca vetro 33|Coca Zero vetro 33|Fanta vetro 33|Sprite vetro 33|Estathe lattina limone|Estathe lattina pesca'],
+ ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla di Tropea:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Peperoni:Cassa|Pomodorini:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
+ ['Salumi e formaggi','Le Bontà del Re','PZ','Bresaola|Capocollo Martina Franca|Ciccioli|Coppa Piacentina DOP|Gorgonzola IGP|Grattugiato|Mortadella IGP|Pecorino Romano DOP|Porchetta|Salame Napoli|Salsiccia|Speck|Uova (10)|Ventricina|Wurstel'],
+ ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Cozze|Fagioli|Gamberetti|Gamberi Mazara|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panko|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale|Vongole'],
+ ['Pulizie','Metro','PZ','Ajax bagno|Alcool|Candeggina|Detersivo filtri cappa|Detersivo lavabicchieri|Detersivo pavimenti|Detersivo piatti Svelto|Disinfettante|Disinfettante mani|Guanti lattice|Microfibre|Mocio|Napisan spray limone|Retine|Sacchi pattume|Sacchi trasparenti|Scopa|Sgrassatore|Smacchiatore|Spugnette|Vetril|Viakal|WC Net'],
+ ['Materiale di consumo','CCM','PZ','Bobine|Brillantante|Carta igienica|Carta mani|Carta oleata|Detersivo lavastoviglie|Sacchetti carta|Sapone mani|Shopper|Tovaglioli sala'],
+ ['Centro Cassa','Centro Cassa','CT','Rotoli grandi|Rotoli piccoli']
+];
+
+/* ============ BASE ============ */
+const DEMO = firebaseConfig.apiKey.startsWith('INSERISCI');
+let auth, db, FV;
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const S = {tab:'settimana', articoli:[], catPending:{}};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sedeNome = id => (SEDI.find(s => s.id === id) || {nome:id}).nome;
+const SEZ_ORD = SEED.map(s => s[0]);
+/* Reparti: ogni pizzeria fa due giacenze separate */
+const REPARTI = [{id:'pizzeria', nome:'Pizzeria'}, {id:'sala', nome:'Bar e sala'}];
+const repNome = id => (REPARTI.find(r => r.id === id) || {nome:id}).nome;
+const REP_SEZ = {'Sanfelici':'pizzeria','Verdure':'pizzeria','Salumi e formaggi':'pizzeria','Varie':'pizzeria','Senza glutine':'pizzeria'}; /* tutte le altre sezioni: sala */
+const REP_SALA_ITEMS = ['Cannucce bar nere','Latte bar con tappo','Ghiaccio'];
+const repSeed = (sez,nome) => REP_SALA_ITEMS.includes(nome) ? 'sala' : (REP_SEZ[sez] || 'sala');
+const repDi = a => a.reparto || REP_SEZ[a.sezione] || 'sala';
+/* Sezioni in cui il personale scrive direttamente l'ordine (niente giacenza); escludi = sedi dove la sezione non c'è */
+/* Solo queste sezioni si contano e l'ordine lo calcola l'app (min/max); in tutte le altre il personale scrive direttamente quanto ordinare */
+const SEZ_CALCOLATE = ['Sanfelici','Liquori','Dolci Sal De Riso'];
+const SEZ_DIRETTE = new Proxy({}, {get: (o,sez) => typeof sez === 'string' && !SEZ_CALCOLATE.includes(sez) ? {escludi:[]} : undefined});
+function scorteSeed(sc){ const v = (sc||'').split(','); const o = {}; SEDI.forEach((s,i) => o[s.id] = Number(v[i]) || 0); return o; }
+const sezIdx = s => { const i = SEZ_ORD.indexOf(s); return i < 0 ? 999 : i; };
+const sortArt = (a,b) => (repDi(a)===repDi(b) ? 0 : repDi(a)==='pizzeria' ? -1 : 1) || sezIdx(a.sezione)-sezIdx(b.sezione) || (a.sezione||'').localeCompare(b.sezione||'') || (a.ordine??0)-(b.ordine??0) || a.nome.localeCompare(b.nome);
+const attivo = (a,sede) => { const s = a.sedi && a.sedi[sede]; return !s || s.on !== false; };
+const maxDi = (a,sede) => { const s = a.sedi && a.sedi[sede]; return s && Number(s.max) > 0 ? Number(s.max) : 0; };
+const scortaDi = (a,sede) => { const s = a.sedi && a.sedi[sede]; return s && Number(s.scorta) > 0 ? Number(s.scorta) : 0; };
+const isFraz = u => u === 'KG' || u === 'LT';
+const r1 = n => Math.round(n*10)/10;
+/* Minimo = soglia di riordino; Massimo = quantità da raggiungere con l'ordine.
+   Si ordina solo se la giacenza è sotto il minimo, fino al massimo. Senza massimo si riporta al minimo. */
+function calcOrdine(min,g,u,max){
+  if(typeof g !== 'number') return 0;
+  const soglia = min > 0 ? min : (max > 0 ? max : 0); if(!soglia || g >= soglia) return 0;
+  const target = max > 0 ? Math.max(max, soglia) : soglia; const o = target - g; if(o <= 0) return 0;
+  return isFraz(u) ? r1(o) : Math.ceil(o);
+}
+function num(v){ if(v===''||v==null) return null; const n = parseFloat(String(v).replace(',','.')); return isNaN(n)||n<0 ? null : n; }
+const fmtN = n => n==null ? '' : String(n).replace('.',',');
+const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+function groupBy(arr,key){ const m = new Map(); arr.forEach(x => { const k = typeof key==='function' ? key(x) : x[key]; if(!m.has(k)) m.set(k,[]); m.get(k).push(x); }); return m; }
+const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+/* Giorni delle liste: domenica (0) e giovedì (4). Sanfelici solo la domenica (ordine poi girato martedì/mercoledì). */
+const GIORNI_LISTA = [0,4];
+const GIORNI_FORNITORE = {'Sanfelici':[0]};
+/* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
+const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
+function listaPrima(consegna){ const x = new Date(consegna+'T12:00:00'); do { x.setDate(x.getDate()-1); } while(!GIORNI_LISTA.includes(x.getDay())); return ymd(x); }
+const inGiorno = (a,data) => {
+  const g = GIORNI_FORNITORE[a.fornitore]; if(g && !g.includes(new Date(data+'T12:00:00').getDay())) return false;
+  if(FORNITORI_PROGRAMMATI.includes(a.fornitore)){ const d = (S.consegne||{})[a.fornitore]; return !d || listaPrima(d) === data; }
+  return true;
+};
+function ultimaLista(){ const x = new Date(); x.setHours(12,0,0,0); while(!GIORNI_LISTA.includes(x.getDay())) x.setDate(x.getDate()-1); return x; }
+function lastSunday(){ const x = new Date(); x.setHours(12,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
+const fmt = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+const dayName = s => new Date(s+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long'});
+const toDate = x => x && x.toDate ? x.toDate() : (x instanceof Date ? x : (typeof x === 'string' ? new Date(x) : null));
+
+let tT;
+function toast(msg,kind){ const t=$('#toast'); t.textContent=msg; t.className='toast '+(kind||''); t.hidden=false; clearTimeout(tT); tT=setTimeout(()=>t.hidden=true,3500); }
+function modal(html,bind){ const m=$('#modal'); m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`; m.hidden=false; m.onclick=e=>{ if(e.target===m || e.target.closest('[data-close]')) closeModal(); }; bind && bind(m); }
+/* Conferme dentro la pagina: le finestre del browser (confirm/prompt) sono bloccate in alcune app e anteprime */
+function ask(msg, conInput, valore){
+  return new Promise(res => {
+    let fatto = false; const fine = v => { if(fatto) return; fatto = true; closeModal(); res(v); };
+    modal(`<p style="white-space:pre-line;margin:0 0 1rem;font-size:1.05rem">${esc(msg)}</p>
+      ${conInput ? `<input id="askv" class="search" value="${esc(valore||'')}" autocomplete="off" style="margin-bottom:1rem">` : ''}
+      <div class="acts"><span class="sp"></span><button class="btn" id="askno">Annulla</button><button class="btn primary" id="asksi">${conInput?'Salva':'Conferma'}</button></div>`, m => {
+      m.onclick = e => { if(e.target === m) fine(conInput ? null : false); };
+      m.querySelector('#askno').onclick = () => fine(conInput ? null : false);
+      m.querySelector('#asksi').onclick = () => fine(conInput ? m.querySelector('#askv').value : true);
+      const i = m.querySelector('#askv'); if(i) i.focus();
+    });
+  });
+}
+const askText = (msg, valore) => ask(msg, true, valore);
+function closeModal(){ const m=$('#modal'); m.hidden=true; m.innerHTML=''; }
+const main = () => $('#main');
+function view(name,html,keepScroll){ S.view=name; const m=main(); m.onclick=null; m.oninput=null; m.onchange=null; m.innerHTML=html; if(!keepScroll) window.scrollTo(0,0); }
+
+/* ============ ACCESSO ============ */
+function renderLogin(){
+  app.innerHTML = `<div class="login"><h1>Lista ordini</h1><p>Gruppo Teperino</p>
+  <form id="lf"><label class="fld">Email<input type="email" id="le" autocomplete="username" required></label>
+  <label class="fld">Password<input type="password" id="lp" autocomplete="current-password" required></label>
+  <button class="btn primary big">Accedi</button><p class="err" id="lerr"></p></form></div>`;
+  if(DEMO){
+    $('#lf').insertAdjacentHTML('afterend', `<div class="note warn" style="margin-top:1rem">Versione di prova: Firebase non è ancora configurato, i dati sono finti e restano solo su questo dispositivo.</div>
+      <div class="acts" style="flex-direction:column;align-items:stretch">
+      <button class="btn primary" data-demo="ltepe69@gmail.com">Entra come gestione</button>
+      ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
+      <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
+    app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v20'); location.reload(); } };
+  }
+  $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
+    try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
+    catch(err){ $('#lerr').textContent = 'Email o password non corrette.'; } };
+}
+
+let unsubArt=null, primo=true;
+async function onAuth(u){
+  if(unsubArt){ unsubArt(); unsubArt=null; }
+  if(!u){ renderLogin(); return; }
+  S.email = (u.email||'').toLowerCase();
+  S.admin = ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(S.email);
+  app.innerHTML = '<p class="loading" style="text-align:center">Caricamento…</p>';
+  if(!S.admin){
+    try{ const d = await db.collection('utenti').doc(S.email).get(); S.sede = d.exists ? d.data().sede : null; }catch(e){ S.sede=null; }
+    if(!S.sede){
+      app.innerHTML = `<div class="login"><h1>Tablet non abbinato</h1><p>L'account ${esc(S.email)} non è collegato a nessuna pizzeria. L'amministratore deve abbinarlo nella sezione Tablet.</p><button class="btn" id="lo">Esci</button></div>`;
+      $('#lo').onclick = () => auth.signOut(); return;
+    }
+  }
+  try{ const cf = await db.collection('config').doc('consegne').get(); S.consegne = cf.exists ? cf.data() : {}; }catch(e){ S.consegne = {}; }
+  primo = true;
+  unsubArt = db.collection('articoli').onSnapshot(qs => {
+    S.articoli = qs.docs.map(d => ({id:d.id, ...d.data()})).sort(sortArt);
+    if(primo){ primo=false; shell(); route(); }
+    else if(S.view==='catalogo' && !Object.keys(S.catPending).length) renderCatalogo(true);
+  }, err => { app.innerHTML = `<p class="loading" style="text-align:center">Accesso al database non riuscito: ${esc(err.message)}</p>`; });
+}
+
+const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
+function shell(){
+  app.innerHTML = `<header class="top"><div class="brand">Lista ordini<span>Gruppo Teperino</span></div>
+    <div class="who"><span>${S.admin ? 'Gestione' : esc(sedeNome(S.sede))}</span><button class="link" id="logout">Esci</button></div></header>
+    ${S.admin ? `<nav class="tabs">${TABS.map(t=>`<button data-tab="${t[0]}">${t[1]}</button>`).join('')}</nav>` : ''}
+    ${DEMO ? '<div class="note warn" style="border-radius:0;margin:0;text-align:center">Versione di prova con dati finti</div>' : ''}
+    <main id="main"></main>`;
+  $('#logout').onclick = async () => { if(saveT){ clearTimeout(saveT); saveT=null; await saveBozza(); } auth.signOut(); };
+  if(S.admin) $('.tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if(b) go(b.dataset.tab); };
+  main().addEventListener('click', e => { if(e.target.closest('[data-back]')) go(S.tab); else if(e.target.closest('[data-sedeback]')) openSede(S.conta.sede, S.conta.data); });
+}
+function route(){ if(S.admin) go(S.tab); else openSede(S.sede, ymd(ultimaLista())); }
+async function go(tab){
+  if(S.view==='catalogo' && Object.keys(S.catPending).length && tab!=='catalogo'){
+    if(!await ask('Ci sono modifiche alle scorte non salvate. Uscire senza salvare?')) return;
+    S.catPending = {};
+  }
+  S.tab = tab;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
+  ({settimana:renderSettimana, conta:renderContaScelta, storico:renderStorico, analisi:renderAnalisi, catalogo:()=>renderCatalogo(), utenti:renderUtenti})[tab]();
+}
+
+/* ============ CONTEGGIO ============ */
+async function openSede(sede,data){
+  view('sede','<p class="loading">Caricamento…</p>');
+  let snaps;
+  try{ snaps = await Promise.all(REPARTI.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
+  catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere le giacenze (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
+  if(S.view!=='sede') return;
+  view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
+    <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
+    <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data);
+      return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
+  main().onclick = e => { const b = e.target.closest('[data-r]'); if(b) openConta(sede, data, b.dataset.r); };
+}
+function statoConta(sn, sede, rep, data){
+  const gArts = S.articoli.filter(a => attivo(a,sede) && !a.diretto && repDi(a)===rep && inGiorno(a,data));
+  if(!sn.exists) return {stato:'Da fare', cls:'todo', info:`${gArts.length} articoli da contare`};
+  const c = sn.data();
+  if(c.stato==='chiuso') return {stato:'Chiusa', cls:'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare`};
+  return {stato:'In corso', cls:'wip', info:`${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati`};
+}
+
+async function openConta(sede,data,rep){
+  view('conta','<p class="loading">Caricamento…</p>');
+  const id = `${sede}_${data}_${rep}`; let snap;
+  try{ snap = await db.collection('conteggi').doc(id).get(); }
+  catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
+  S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
+  S.conta.righe = S.conta.righe || {};
+  S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
+}
+
+function rowHtml(a,v){
+  const done = typeof v === 'number';
+  return `<div class="row${done?' done':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${a.diretto?' data-dir':''}>
+    <div class="r-name">${esc(a.nome)}<small>${esc(a.fornitore||'')}</small></div>
+    <div class="stepper"><button type="button" data-act="-" aria-label="Meno">−</button><input inputmode="decimal" autocomplete="off" value="${done?fmtN(v):''}" aria-label="${a.diretto?'Da ordinare':'Giacenza'} ${esc(a.nome)}"><button type="button" data-act="+" aria-label="Più">+</button></div>
+    <span class="u">${esc(a.unita||'')}</span></div>`;
+}
+
+function renderConta(){
+  const c = S.conta;
+  const arts = S.articoli.filter(a => attivo(a,c.sede) && repDi(a)===c.reparto && inGiorno(a,c.data)); S.contaArts = arts;
+  if(!arts.length){ view('conta', `<h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="empty">Nessun articolo per questo reparto. ${S.admin?'Caricalo da Catalogo e scorte.':"Avvisa l'amministratore."}</p>`); return; }
+  const groups = [...groupBy(arts,'sezione')]; S.contaGroups = groups; c.inviati = c.inviati || {};
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}</p></div>
+    <label class="fld">Chi sta contando<input id="oper" value="${esc(c.operatore)}" placeholder="Nome e cognome" autocomplete="off"></label></div>
+  <div class="rail"><div class="chips">${groups.map(([s],i)=>`<button class="chip" data-go="${i}" id="chip-${i}">${esc(s)}<b></b></button>`).join('')}</div>
+    <input id="q" class="search" type="search" placeholder="Cerca articolo" autocomplete="off"></div>
+  <div id="lista">${groups.map(([s,list],i)=>`<section class="sez" id="sez-${i}" data-i="${i}"><h2>${esc(s)}<span class="sez-n"></span></h2>${list.every(a=>a.diretto)?'<p class="note warn" style="margin:0;border-radius:0">Qui scrivi quanto ordinare, non la giacenza. Lascia vuoto ciò che non serve.</p>':''}${list.map(a=>rowHtml(a,c.righe[a.id])).join('')}<div class="sez-foot" id="foot-${i}"></div></section>`).join('')}</div>
+  <div class="bar"><div class="prog"><i id="pf"></i></div><div class="bar-row"><span id="mancanti"></span><span id="saved" class="muted small"></span><span id="pronti" class="acts"></span><button class="btn primary" id="chiudi">Chiudi lista e invia ordini</button></div></div>`);
+  updateCounts();
+
+  const lista = $('#lista');
+  lista.addEventListener('click', async e => {
+    const ant = e.target.closest('[data-anticipo]'); if(ant){ ordineAnticipato(+ant.dataset.anticipo); return; }
+    const unl = e.target.closest('[data-unlock]'); if(unl){ const [s] = S.contaGroups[+unl.dataset.unlock];
+      if(!await ask(`L'ordine di questa sezione è già stato inviato. Se cambi i numeri dovrai rimandarlo. Sbloccare?`)) return;
+      delete c.inviati[s]; updateCounts(); queueSave(); return; }
+    const b = e.target.closest('button[data-act]'); if(!b) return;
+    const row = b.closest('.row'), inp = row.querySelector('input');
+    let v = num(inp.value);
+    v = b.dataset.act === '+' ? (v ?? 0) + 1 : (v == null ? 0 : Math.max(0, v - 1));
+    v = r1(v); inp.value = fmtN(v); setVal(row, v);
+  });
+  lista.addEventListener('input', e => { if(e.target.tagName==='INPUT') setVal(e.target.closest('.row'), num(e.target.value)); });
+  lista.addEventListener('focusin', e => { if(e.target.tagName==='INPUT') e.target.select(); });
+  $('#oper').oninput = e => { c.operatore = e.target.value; queueSave(); };
+  $('.chips').onclick = e => { const b = e.target.closest('[data-go]'); if(b) $('#sez-'+b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'}); };
+  $('#q').oninput = e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('#lista .sez').forEach(sec => { let any=false;
+      sec.querySelectorAll('.row').forEach(r => { const m = !q || r.dataset.n.includes(q); r.hidden = !m; if(m) any=true; });
+      sec.hidden = !any; });
+  };
+  $('#chiudi').onclick = chiudiConta;
+  $('#pronti').onclick = e => { const b = e.target.closest('[data-anticipo]'); if(b) ordineAnticipato(+b.dataset.anticipo); };
+}
+
+function footSezione(sec, completa, mancano){
+  const c = S.conta, i = +sec.dataset.i, [s, list] = S.contaGroups[i], foot = $('#foot-'+i);
+  const inv = c.inviati && c.inviati[s];
+  sec.classList.toggle('locked', !!inv);
+  sec.querySelectorAll('.stepper input, .stepper button').forEach(el => el.disabled = !!inv);
+  const forn = [...new Set(list.map(a => a.fornitore || 'Senza fornitore'))].join(', ');
+  const haDir = list.some(a => a.diretto && c.righe[a.id] > 0);
+  if(inv){ const t = new Date(inv); foot.innerHTML = `<span class="pill ok">Ordine ${esc(forn)} inviato alle ${t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</span><button class="link" data-unlock="${i}">Modifica</button>`; }
+  else if(list.some(a => !a.diretto) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
+  else foot.innerHTML = '';
+  return false;
+}
+
+function righeOrdine(c, list){
+  return list.map(a => { const base = {id:a.id, nome:a.nome, unita:a.unita||'', sezione:a.sezione||'', fornitore:a.fornitore||''};
+    if(a.diretto){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
+    const g = c.righe[a.id], sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
+    return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx)}; });
+}
+
+async function ordineAnticipato(i){
+  const c = S.conta, [s, list] = S.contaGroups[i];
+  const vuoti = list.filter(a => !a.diretto && typeof c.righe[a.id] !== 'number');
+  const ord = righeOrdine(c, list).filter(r => r.ordine > 0);
+  const groups = [...groupBy(ord, r => r.fornitore || 'Senza fornitore')];
+  const segna = () => { c.inviati[s] = new Date().toISOString(); updateCounts(); clearTimeout(saveT); saveBozza(); };
+  modal(`<h2>Ordine ${esc(s)}</h2>
+    ${groups.length ? groups.map(([f,l],j)=>`<article class="ord" style="margin-bottom:.8rem"><header><h3>${esc(f)}</h3><span class="muted small">${l.length} articoli</span></header>
+      <ul>${l.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
+      <div class="ord-acts"><a class="btn primary" target="_blank" rel="noopener" data-wa="${j}" href="${waUrl(testoOrdine(c,f,l))}">Invia ordine ${esc(f)} a ${NOME_ORDINI}</a><button class="btn" data-cp="${j}">Copia testo</button></div></article>`).join('')
+      : '<p class="empty">Niente sotto scorta: non c\'è niente da ordinare per questa sezione.</p>'}
+    <p class="muted small">Dopo l'invio la sezione viene bloccata, così l'ordine non cambia. Alla chiusura della giacenza questo ordine risulterà già inviato.</p>
+    <div class="acts"><span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="segna">${groups.length?'Segna come inviato':'Ok, sezione fatta'}</button></div>`, m => {
+    m.querySelectorAll('[data-wa]').forEach(a => a.addEventListener('click', () => { segna(); setTimeout(closeModal, 300); }));
+    m.querySelectorAll('[data-cp]').forEach(b => b.onclick = () => { const [f,l] = groups[+b.dataset.cp];
+      navigator.clipboard.writeText(testoOrdine(c,f,l)).then(()=>{ segna(); toast('Testo copiato, ordine segnato come inviato','ok'); },()=>toast('Copia non riuscita','err')); });
+    m.querySelector('#segna').onclick = () => { segna(); closeModal(); toast('Sezione segnata come inviata','ok'); };
+  });
+}
+
+function setVal(row,v){
+  const id = row.dataset.id;
+  if(v == null) delete S.conta.righe[id]; else S.conta.righe[id] = v;
+  row.classList.toggle('done', v != null); row.classList.remove('flash');
+  updateCounts(); queueSave();
+}
+
+function updateCounts(){
+  const c = S.conta; let tot=0, done=0; const pronti = [];
+  document.querySelectorAll('#lista .sez').forEach(sec => {
+    const rows = sec.querySelectorAll('.row:not([data-dir])'); let d=0;
+    rows.forEach(r => { if(typeof c.righe[r.dataset.id] === 'number') d++; });
+    tot += rows.length; done += d;
+    if(footSezione(sec, d === rows.length, rows.length - d)) pronti.push(+sec.dataset.i);
+    const ch = $('#chip-'+sec.dataset.i);
+    if(!rows.length){ const n = [...sec.querySelectorAll('.row[data-dir]')].filter(r => c.righe[r.dataset.id] > 0).length;
+      sec.querySelector('.sez-n').textContent = `ordine diretto, ${n} righe`; ch.querySelector('b').textContent = 'ordine'; ch.classList.add('full'); return; }
+    sec.querySelector('.sez-n').textContent = `${d}/${rows.length}`;
+    ch.querySelector('b').textContent = `${d}/${rows.length}`; ch.classList.toggle('full', d===rows.length);
+  });
+  const miss = tot-done, m = $('#mancanti');
+  $('#pf').style.width = (tot ? done/tot*100 : 0) + '%';
+  m.textContent = !tot ? 'Solo ordini: scrivi quello che serve' : miss ? `${miss} non compilati` : 'Tutto compilato'; m.className = miss ? '' : 'okt';
+  const pr = $('#pronti');
+  if(pr) pr.innerHTML = miss ? pronti.filter(i => S.contaGroups[i][1].some(a => !a.diretto)).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
+    return `<button class="btn primary" data-anticipo="${i}">Invia ordine ${esc(forn)}</button>`; }).join('') : '';
+}
+
+let saveT=null;
+function queueSave(){ const el=$('#saved'); if(el) el.textContent='Modifiche in attesa'; clearTimeout(saveT); saveT=setTimeout(saveBozza,1000); }
+function saveBozza(){
+  saveT = null;
+  const c = S.conta; if(!c || c.stato==='chiuso') return Promise.resolve();
+  c.creato = c.creato || new Date();
+  const el = $('#saved'); if(el) el.textContent = 'Salvataggio…';
+  const p = db.collection('conteggi').doc(c.id).set({sede:c.sede, data:c.data, reparto:c.reparto, stato:'bozza', operatore:c.operatore||'', righe:c.righe, inviati:c.inviati||{}, creato:c.creato, aggiornato:FV.serverTimestamp()});
+  p.then(()=>{ const el=$('#saved'); if(el && S.conta===c) el.textContent='Salvato'; })
+   .catch(e => toast('Salvataggio non riuscito: '+e.message,'err'));
+  return p;
+}
+document.addEventListener('visibilitychange', () => { if(document.hidden && saveT){ clearTimeout(saveT); saveBozza(); } });
+
+async function chiudiConta(){
+  const c = S.conta;
+  if(!(c.operatore||'').trim()){ toast('Scrivi chi ha fatto il conteggio','err'); $('#oper').focus(); return; }
+  const q = $('#q'); if(q.value){ q.value=''; q.dispatchEvent(new Event('input')); }
+  const miss = [...document.querySelectorAll('#lista .row:not([data-dir])')].filter(r => typeof c.righe[r.dataset.id] !== 'number');
+  if(!await ask((miss.length ? `${miss.length} articoli non compilati: per questi non verrà fatto l'ordine.\n\n` : '') + 'Chiudere la lista e preparare gli ordini?\nDopo la chiusura la lista non si potrà più modificare.')) return;
+  clearTimeout(saveT); saveT=null;
+  const inv = c.inviati || {};
+  const dettaglio = righeOrdine(c, S.contaArts).map(r => inv[r.sezione] ? {...r, inviato:true} : r);
+  const doc = {sede:c.sede, data:c.data, reparto:c.reparto, stato:'chiuso', operatore:c.operatore.trim(), righe:c.righe, inviati:inv, creato:c.creato||new Date(), chiuso:new Date(), dettaglio};
+  const btn = $('#chiudi'); btn.disabled=true; btn.textContent='Chiusura…';
+  const write = db.collection('conteggi').doc(c.id).set(doc);
+  let offline = false;
+  try{ await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
+  catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent='Chiudi lista e invia ordini'; return; }
+  S.conta = {id:c.id, ...doc}; renderChiuso();
+  toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : 'Lista chiusa: ora invia gli ordini','ok');
+}
+
+function testoOrdine(c,f,list){
+  const sez = [...groupBy(list, r => r.sezione || 'Altro')];
+  return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
+}
+
+function renderChiuso(){
+  const c = S.conta, det = c.dettaglio || [];
+  const ord = det.filter(r => r.ordine > 0);
+  const senza = det.filter(r => !r.diretto && !(r.scorta > 0) && !(r.max > 0)).length;
+  const cd = toDate(c.chiuso);
+  const gm = new Map(); ord.forEach(r => { const k = (r.fornitore||'Senza fornitore') + (r.inviato ? '\u0001' : ''); if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
+  const groups = [...gm].map(([k,l]) => [k.replace('\u0001',''), l, k.endsWith('\u0001')]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
+    <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
+    ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
+  ${S.admin && senza ? `<p class="note warn">${senza} articoli non hanno minimo né massimo per questa pizzeria e non generano ordini. Impostali in Catalogo e scorte.</p>` : ''}
+  <h2 class="h2">Ordini da inviare</h2><p class="muted" style="margin:-.4rem 0 .8rem">Un messaggio per ogni fornitore: invia ${esc(NOME_ORDINI)} ognuno, così li inoltra direttamente.</p>
+  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>`<article class="ord"${inv?' style="opacity:.75"':''}><header><h3>${esc(f)}</h3>${inv?'<span class="pill ok">Già inviato</span>':`<span class="muted small">${list.length} articoli</span>`}</header>
+    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
+    <div class="ord-acts"><a class="btn primary" target="_blank" rel="noopener" data-sent href="${waUrl(testoOrdine(c,f,list))}">Invia ordine ${esc(f)} a ${NOME_ORDINI}</a><button class="btn" data-copy="${i}">Copia testo</button></div></article>`).join('')}</div>`
+    : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
+  <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
+    <thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
+    <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':fmtN(r.g)+' '+esc(r.unita)}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
+  main().onclick = e => { const b = e.target.closest('[data-copy]'); if(!b) return;
+    const [f,list] = groups[+b.dataset.copy];
+    navigator.clipboard.writeText(testoOrdine(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
+  if(S.admin){
+    $('#csv').onclick = () => exportCSV(c);
+    $('#riapri').onclick = async () => { if(!await ask('Riaprire la giacenza? Il tablet potrà modificarla di nuovo.')) return;
+      await db.collection('conteggi').doc(c.id).update({stato:'bozza', dettaglio:FV.delete(), chiuso:FV.delete()}); openConta(c.sede,c.data,c.reparto); };
+    $('#elim').onclick = async () => { if(!await ask('Eliminare definitivamente questa giacenza?')) return;
+      await db.collection('conteggi').doc(c.id).delete(); toast('Giacenza eliminata','ok'); openSede(c.sede,c.data); };
+  }
+}
+
+function exportCSV(c){
+  const rows = [['Pizzeria','Reparto','Data','Sezione','Fornitore','Articolo','Unità','Giacenza','Minimo','Massimo','Ordine']]
+    .concat((c.dettaglio||[]).map(r => [sedeNome(c.sede), repNome(c.reparto), fmt(c.data), r.sezione, r.fornitore, r.nome, r.unita, r.diretto?'ordine diretto':fmtN(r.g), r.scorta>0?fmtN(r.scorta):'', r.max>0?fmtN(r.max):'', r.ordine>0?fmtN(r.ordine):'']));
+  const csv = '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(';')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = `giacenza_${c.sede}_${c.reparto}_${c.data}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ============ ADMIN: SETTIMANA ============ */
+async function renderSettimana(){
+  const data = S.setData || ymd(ultimaLista());
+  view('settimana', `<div class="vhead"><h1>Settimana</h1><label class="fld inline">Lista del&nbsp;<input type="date" id="sd" value="${data}"></label></div>
+    <div class="note warn" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">${FORNITORI_PROGRAMMATI.map(f => { const d = (S.consegne||{})[f];
+      return `<label class="fld inline" style="gap:.4rem">Prossima consegna ${esc(f)}<input type="date" data-cons="${esc(f)}" value="${d||''}"></label><span class="small">${d ? `si ordina nella lista di ${dayName(listaPrima(d))} ${fmt(listaPrima(d))}` : 'non impostata: compare in tutte le liste'}</span>`; }).join('')}</div>
+    <div id="sw" class="sedi-grid"><p class="loading">Caricamento…</p></div>`);
+  $('#sd').onchange = e => { S.setData = e.target.value; renderSettimana(); };
+  main().querySelectorAll('[data-cons]').forEach(i => i.onchange = async () => {
+    S.consegne = {...(S.consegne||{}), [i.dataset.cons]: i.value || null};
+    await db.collection('config').doc('consegne').set(S.consegne); toast('Consegna salvata','ok'); renderSettimana(); });
+  let snaps;
+  try{ snaps = await Promise.all(SEDI.flatMap(s => REPARTI.map(r => db.collection('conteggi').doc(`${s.id}_${data}_${r.id}`).get()))); }
+  catch(e){ $('#sw').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
+  if(S.view!=='settimana') return;
+  $('#sw').innerHTML = SEDI.map((s,i) => {
+    const st = REPARTI.map((r,j) => statoConta(snaps[i*REPARTI.length+j], s.id, r.id, data));
+    const cls = st.every(x=>x.cls==='ok') ? 'ok' : st.every(x=>x.cls==='todo') ? 'todo' : 'wip';
+    return `<button class="sede-card ${cls}" data-s="${s.id}"><span class="sc-name">${esc(s.nome)}</span>${REPARTI.map((r,j)=>`<span class="sc-info"><span class="pill ${st[j].cls}">${st[j].stato}</span> ${r.nome}: ${st[j].info}</span>`).join('')}</button>`;
+  }).join('');
+  $('#sw').onclick = e => { const b = e.target.closest('[data-s]'); if(b) openSede(b.dataset.s, data); };
+}
+
+function renderContaScelta(){
+  view('contascelta', `<h1>Fai un conteggio</h1><p class="muted">Scegli la data e la pizzeria.</p>
+    <label class="fld" style="max-width:260px">Data della giacenza<input type="date" id="cd" value="${ymd(ultimaLista())}"></label>
+    <div class="sedi-grid">${SEDI.map(s=>`<button class="sede-btn" data-s="${s.id}">${esc(s.nome)}</button>`).join('')}</div>`);
+  main().onclick = e => { const b = e.target.closest('[data-s]'); if(b && $('#cd').value) openSede(b.dataset.s, $('#cd').value); };
+}
+
+/* ============ ADMIN: STORICO ============ */
+async function renderStorico(){
+  const sel = S.stSede || '';
+  view('storico', `<div class="vhead"><h1>Storico giacenze</h1><select id="ss" class="sel"><option value="">Tutte le pizzerie</option>${SEDI.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(s.nome)}</option>`).join('')}</select></div><div id="sl"><p class="loading">Caricamento…</p></div>`);
+  $('#ss').onchange = e => { S.stSede = e.target.value; renderStorico(); };
+  let q = db.collection('conteggi'); if(sel) q = q.where('sede','==',sel);
+  const qs = await q.get(); if(S.view!=='storico') return;
+  const docs = qs.docs.map(d=>d.data()).sort((a,b)=>b.data.localeCompare(a.data)||a.sede.localeCompare(b.sede)||(a.reparto||'').localeCompare(b.reparto||'')).slice(0,150);
+  $('#sl').innerHTML = docs.length ? `<div class="tblw"><table class="tbl click"><thead><tr><th>Data</th><th>Pizzeria</th><th>Reparto</th><th>Stato</th><th>Chi ha contato</th><th class="n">Righe d'ordine</th></tr></thead>
+    <tbody>${docs.map(d=>`<tr data-s="${d.sede}" data-d="${d.data}" data-r="${d.reparto}"><td>${fmt(d.data)}</td><td>${esc(sedeNome(d.sede))}</td><td>${repNome(d.reparto)}</td><td><span class="pill ${d.stato==='chiuso'?'ok':'wip'}">${d.stato==='chiuso'?'Chiusa':'In corso'}</span></td><td>${esc(d.operatore||'')}</td><td class="n">${d.dettaglio?d.dettaglio.filter(r=>r.ordine>0).length:''}</td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="empty">Nessuna giacenza registrata.</p>';
+  $('#sl').onclick = e => { const tr = e.target.closest('tr[data-s]'); if(tr) openConta(tr.dataset.s, tr.dataset.d, tr.dataset.r); };
+}
+
+/* ============ ADMIN: CONSUMI ============ */
+async function renderAnalisi(){
+  const sede = S.anSede || SEDI[0].id, solo = !!S.anSolo;
+  view('analisi', `<div class="vhead"><h1>Consumi</h1><select id="as" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
+    <label class="chk"><input type="checkbox" id="ao"${solo?' checked':''}> Solo anomalie</label></div>
+    <p class="muted small">Consumo della settimana = giacenza precedente + ordine calcolato − giacenza attuale. Presuppone che l'ordine sia stato consegnato per intero. Suggeriti: minimo = media delle ultime 4 settimane + 25%, massimo = media × 2,25 (copre circa due settimane).</p>
+    <div id="ab"><p class="loading">Caricamento…</p></div>`);
+  $('#as').onchange = e => { S.anSede = e.target.value; renderAnalisi(); };
+  $('#ao').onchange = e => { S.anSolo = e.target.checked; renderAnalisi(); };
+  const qs = await db.collection('conteggi').where('sede','==',sede).get(); if(S.view!=='analisi') return;
+  const perData = {};
+  qs.docs.map(d=>d.data()).filter(d=>d.stato==='chiuso' && d.dettaglio).forEach(d => { (perData[d.data] = perData[d.data] || {data:d.data, dettaglio:[]}).dettaglio.push(...d.dettaglio); });
+  const ch = Object.values(perData).sort((a,b)=>a.data.localeCompare(b.data)).slice(-9);
+  if(ch.length < 2){ $('#ab').innerHTML = '<p class="empty">Servono almeno due giacenze chiuse di questa pizzeria per calcolare i consumi.</p>'; return; }
+  const weeks = [];
+  const ultimo = {}; ch[0].dettaglio.forEach(r => { if(typeof r.g==='number') ultimo[r.id] = r; });
+  for(let i=1;i<ch.length;i++){
+    const cons = {};
+    ch[i].dettaglio.forEach(r => { if(typeof r.g!=='number') return; const p = ultimo[r.id];
+      if(p) cons[r.id] = r1(p.g + (p.ordine||0) - r.g); ultimo[r.id] = r; });
+    weeks.push({data:ch[i].data, cons});
+  }
+  const show = weeks.slice(-6);
+  const rows = S.articoli.filter(a=>attivo(a,sede) && !a.diretto).map(a => {
+    const vals = weeks.map(w => w.cons[a.id]);
+    const def = vals.filter(v => typeof v==='number');
+    const last = vals[vals.length-1];
+    const prev = vals.slice(0,-1).filter(v => typeof v==='number').slice(-4);
+    const media = prev.length ? avg(prev) : null;
+    const m4 = def.length ? avg(def.slice(-4)) : null;
+    let flag = '';
+    if(typeof last==='number'){ if(last < 0) flag='neg'; else if(media > 0 && last >= media*1.6 && last-media >= 2) flag='alto'; }
+    const sc = scortaDi(a,sede);
+    const sug = m4 > 0 ? (isFraz(a.unita) ? r1(m4*1.25) : Math.ceil(m4*1.25)) : null;
+    const mx = maxDi(a,sede), sugMax = m4 > 0 ? Math.max(sug, isFraz(a.unita) ? r1(m4*2.25) : Math.ceil(m4*2.25)) : null;
+    return {a, vals:vals.slice(-6), m4, flag, sc, sug, mx, sugMax};
+  });
+  const vis = solo ? rows.filter(r=>r.flag) : rows;
+  const nNeg = rows.filter(r=>r.flag==='neg').length, nAlto = rows.filter(r=>r.flag==='alto').length;
+  const daApplicare = rows.filter(r => r.sug!=null && (r.sug!==r.sc || r.sugMax!==r.mx));
+  $('#ab').innerHTML = `<div class="kpis"><div><b>${weeks.length}</b>liste analizzate</div><div class="${nAlto?'amb':''}"><b>${nAlto}</b>consumi anomali nell'ultima lista</div><div class="${nNeg?'red':''}"><b>${nNeg}</b>giacenze salite senza ordine</div></div>
+    <div class="acts" style="margin-bottom:1rem"><button class="btn primary" id="apsug"${daApplicare.length?'':' disabled'}>Applica ${daApplicare.length} min/max suggeriti</button></div>
+    <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th>${show.map(w=>`<th class="n">${fmt(w.data).slice(0,5)}</th>`).join('')}<th class="n">Media</th><th class="n">Min / Max</th><th class="n">Suggeriti</th></tr></thead>
+    <tbody>${vis.map(r=>`<tr class="${r.flag}"><td>${esc(r.a.nome)} <small class="muted">${esc(r.a.unita||'')}</small>${r.flag==='neg'?'<em class="tag red">salita</em>':r.flag==='alto'?'<em class="tag amb">alto</em>':''}</td>${r.vals.map(v=>`<td class="n">${typeof v==='number'?fmtN(v):''}</td>`).join('')}<td class="n">${r.m4!=null?fmtN(r1(r.m4)):''}</td><td class="n">${r.sc>0?fmtN(r.sc):'–'} / ${r.mx>0?fmtN(r.mx):'–'}</td><td class="n">${r.sug!=null?fmtN(r.sug)+' / '+fmtN(r.sugMax):''}</td></tr>`).join('') || `<tr><td colspan="${show.length+4}" class="muted">Nessuna anomalia.</td></tr>`}</tbody></table></div>`;
+  $('#apsug').onclick = async () => {
+    if(!await ask(`Aggiornare minimo e massimo di ${daApplicare.length} articoli per ${sedeNome(sede)}?`)) return;
+    const b = db.batch(); daApplicare.forEach(r => b.update(db.collection('articoli').doc(r.a.id), {[`sedi.${sede}.scorta`]: r.sug, [`sedi.${sede}.max`]: r.sugMax}));
+    await b.commit(); toast('Scorte aggiornate','ok'); renderAnalisi();
+  };
+}
+
+/* ============ ADMIN: CATALOGO ============ */
+function catRow(a,sede){
+  const p = S.catPending[a.id] || {}, s = (a.sedi && a.sedi[sede]) || {};
+  const on = p.on !== undefined ? p.on : s.on !== false;
+  const sc = p.scorta !== undefined ? p.scorta : (Number(s.scorta) > 0 ? Number(s.scorta) : null);
+  const mx = p.max !== undefined ? p.max : (Number(s.max) > 0 ? Number(s.max) : null);
+  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}</small></div>
+    <label class="chk"><input type="checkbox" data-on${on?' checked':''}> In uso</label>
+    ${a.diretto ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
+}
+
+function renderCatalogo(keep){
+  const sede = S.catSede || SEDI[0].id;
+  if(!S.articoli.length){
+    view('catalogo', `<h1>Catalogo e scorte</h1><p class="empty">Il catalogo è vuoto. Puoi caricarlo con gli articoli dei fogli cartacei attuali e poi modificarlo.</p><button class="btn primary big" id="seed" style="max-width:420px">Carica il catalogo dai fogli</button>`);
+    $('#seed').onclick = seedCatalogo; return;
+  }
+  const groups = [...groupBy(S.articoli,'sezione')];
+  const forn = [...groupBy(S.articoli, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
+  const np = Object.keys(S.catPending).length;
+  view('catalogo', `<div class="vhead"><h1>Catalogo e scorte</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button></div>
+    <p class="muted small"><b>Min</b>: sotto questa giacenza si ordina. <b>Max</b>: la quantità da raggiungere con l'ordine (ordine = max − giacenza). Esempio Farina Lucia min 10, max 45: con 7 sacchi ordina 38, con 12 non ordina. Senza max l'ordine riporta solo al minimo; senza min e max l'articolo viene contato ma non ordinato. Tocca il nome per modificarlo.</p>
+    <details class="det"><summary>Fornitori (${forn.length})</summary><ul class="forn">${forn.map(([f,l])=>`<li><span>${esc(f||'Senza fornitore')}</span><small class="muted">${l.length} articoli</small><button class="link" data-ren="${esc(f)}">Rinomina</button></li>`).join('')}</ul></details>
+    <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)}<span class="sez-n">${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
+    <div class="bar" id="cbar"${np?'':' hidden'}><div class="bar-row"><span id="cpn">${np} articoli modificati</span><button class="btn" id="cann">Annulla</button><button class="btn primary" id="csave">Salva modifiche</button></div></div>`, keep);
+
+  const pend = (id,k,v) => { S.catPending[id] = {...(S.catPending[id]||{}), [k]:v}; const n = Object.keys(S.catPending).length; $('#cbar').hidden = !n; $('#cpn').textContent = `${n} articoli modificati`; };
+  $('#cs').onchange = async e => {
+    if(Object.keys(S.catPending).length && !await ask('Ci sono modifiche non salvate. Cambiare pizzeria senza salvare?')){ e.target.value = sede; return; }
+    S.catPending = {}; S.catSede = e.target.value; renderCatalogo(true);
+  };
+  $('#nuovo').onclick = () => editArticolo(null);
+  const cat = $('#cat');
+  cat.onclick = e => { if(e.target.closest('[data-edit]')) editArticolo(e.target.closest('.crow').dataset.id); };
+  cat.onchange = e => { if(e.target.matches('[data-on]')){ const row = e.target.closest('.crow'); row.classList.toggle('off', !e.target.checked); pend(row.dataset.id,'on',e.target.checked); } };
+  cat.oninput = e => { if(e.target.matches('[data-sc]')) pend(e.target.closest('.crow').dataset.id,'scorta', num(e.target.value) ?? 0);
+    if(e.target.matches('[data-mx]')) pend(e.target.closest('.crow').dataset.id,'max', num(e.target.value) ?? 0); };
+  $('.forn').onclick = async e => {
+    const b = e.target.closest('[data-ren]'); if(!b) return;
+    const old = b.dataset.ren, nuovo = ((await askText(`Nuovo nome per il fornitore "${old||'Senza fornitore'}"`, old)) || '').trim();
+    if(!nuovo || nuovo===old) return;
+    const batch = db.batch(); S.articoli.filter(a => (a.fornitore||'')===old).forEach(a => batch.update(db.collection('articoli').doc(a.id), {fornitore:nuovo}));
+    await batch.commit(); toast('Fornitore rinominato','ok');
+  };
+  $('#cann').onclick = () => { S.catPending = {}; renderCatalogo(true); };
+  $('#csave').onclick = async () => {
+    const btn = $('#csave'); btn.disabled = true;
+    const batch = db.batch();
+    Object.entries(S.catPending).forEach(([id,p]) => { const u = {};
+      if(p.on !== undefined) u[`sedi.${sede}.on`] = p.on;
+      if(p.scorta !== undefined) u[`sedi.${sede}.scorta`] = p.scorta;
+      if(p.max !== undefined) u[`sedi.${sede}.max`] = p.max;
+      batch.update(db.collection('articoli').doc(id), u); });
+    try{ await batch.commit(); S.catPending = {}; toast('Modifiche salvate','ok'); renderCatalogo(true); }
+    catch(e){ btn.disabled = false; toast('Salvataggio non riuscito: '+e.message,'err'); }
+  };
+}
+
+function editArticolo(id){
+  const a = id ? S.articoli.find(x=>x.id===id) : {nome:'', sezione:'', fornitore:'', unita:'PZ'};
+  const sezs = [...new Set(S.articoli.map(x=>x.sezione).filter(Boolean))];
+  const forns = [...new Set(S.articoli.map(x=>x.fornitore).filter(Boolean))].sort();
+  const units = UNITA.includes(a.unita) ? UNITA : UNITA.concat(a.unita);
+  modal(`<h2>${id?'Modifica articolo':'Nuovo articolo'}</h2>
+    <label class="fld">Nome<input id="an" value="${esc(a.nome)}"></label>
+    <label class="fld">Sezione<input id="asz" list="dl-sez" value="${esc(a.sezione)}"></label>
+    <label class="fld">Fornitore<input id="af" list="dl-forn" value="${esc(a.fornitore)}"></label>
+    <label class="fld">Unità di conteggio<select id="au">${units.map(u=>`<option${u===a.unita?' selected':''}>${esc(u)}</option>`).join('')}</select></label>
+    <label class="fld">Reparto<select id="arep">${REPARTI.map(r=>`<option value="${r.id}"${r.id===(id?repDi(a):'pizzeria')?' selected':''}>${r.nome}</option>`).join('')}</select></label>
+    <label class="chk" style="margin-bottom:1rem"><input type="checkbox" id="adir"${a.diretto?' checked':''}> Ordine diretto: il personale scrive quanto ordinare, senza giacenza</label>
+    <datalist id="dl-sez">${sezs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+    <datalist id="dl-forn">${forns.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+    <div class="acts">${id?'<button class="btn danger" id="adel">Elimina</button>':''}<span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="asave">Salva</button></div>`, m => {
+    m.querySelector('#asave').onclick = async () => {
+      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, diretto:$('#adir').checked, reparto:$('#arep').value};
+      if(!d.nome){ toast('Inserisci il nome','err'); return; }
+      if(id) await db.collection('articoli').doc(id).update(d);
+      else { const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on:true, scorta:0});
+        d.ordine = Math.max(0, ...S.articoli.map(x=>x.ordine||0)) + 1; d.sedi = sedi;
+        await db.collection('articoli').add(d); }
+      closeModal(); toast('Articolo salvato','ok');
+    };
+    const del = m.querySelector('#adel');
+    if(del) del.onclick = async () => { if(!await ask(`Eliminare "${a.nome}" dal catalogo? Lo storico delle giacenze resta.`)) return;
+      await db.collection('articoli').doc(id).delete(); delete S.catPending[id]; closeModal(); toast('Articolo eliminato','ok'); };
+  });
+}
+
+async function seedCatalogo(){
+  if(!await ask('Caricare il catalogo con gli articoli dei fogli cartacei?')) return;
+  const batch = db.batch(); let ord = 0;
+  SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => {
+    const [nome,u,sc,mx] = item.split(':'); const scs = scorteSeed(sc), mxs = scorteSeed(mx); const dir = SEZ_DIRETTE[sez];
+    const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
+    batch.set(db.collection('articoli').doc(), {nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
+  }));
+  await batch.commit(); toast(`Catalogo caricato: ${ord} articoli`,'ok');
+}
+
+/* ============ ADMIN: TABLET ============ */
+async function renderUtenti(){
+  view('utenti', `<h1>Tablet delle pizzerie</h1>
+    <p class="muted small">Crea prima l'account in Firebase (Authentication, Aggiungi utente), poi abbinalo qui alla pizzeria. Quel tablet vedrà solo la giacenza della sua sede.</p>
+    <form id="uf" class="uform"><input type="email" id="ue" placeholder="Email dell'account tablet" required><select id="us" class="sel">${SEDI.map(s=>`<option value="${s.id}">${esc(s.nome)}</option>`).join('')}</select><button class="btn primary">Abbina</button></form>
+    <div id="ul"><p class="loading">Caricamento…</p></div>`);
+  $('#uf').onsubmit = async e => { e.preventDefault(); const em = $('#ue').value.trim().toLowerCase();
+    await db.collection('utenti').doc(em).set({sede:$('#us').value}); toast('Tablet abbinato','ok'); renderUtenti(); };
+  const qs = await db.collection('utenti').get(); if(S.view!=='utenti') return;
+  $('#ul').innerHTML = qs.empty ? '<p class="empty">Nessun tablet abbinato.</p>' :
+    `<div class="tblw"><table class="tbl"><thead><tr><th>Account</th><th>Pizzeria</th><th></th></tr></thead><tbody>${qs.docs.map(d=>`<tr><td>${esc(d.id)}</td><td>${esc(sedeNome(d.data().sede))}</td><td class="n"><button class="link" data-del="${esc(d.id)}">Rimuovi</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('#ul').onclick = async e => { const b = e.target.closest('[data-del]'); if(!b || !await ask(`Rimuovere l'abbinamento di ${b.dataset.del}?`)) return;
+    await db.collection('utenti').doc(b.dataset.del).delete(); renderUtenti(); };
+}
+
+/* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
+function makeDemo(){
+  const KEY = 'giacenze-demo-v20';
+  let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  store = store || {};
+  const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
+  let quiet = false;
+  const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
+  const col = n => store[n] = store[n] || {};
+  const qsnap = (n,f) => { const docs = Object.keys(col(n)).filter(id => !f || f(col(n)[id])).map(id => sdoc(n,id)); return {docs, empty:!docs.length}; };
+  const sdoc = (n,id) => ({id, exists: id in col(n), data: () => clone(col(n)[id])});
+  const persist = () => { if(quiet) return; try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){} listeners.forEach(l => l.cb(qsnap(l.n))); };
+  const fix = v => v === TS ? new Date().toISOString() : clone(v);
+  const _set = (n,id,d) => { const o = {}; for(const k in d) o[k] = fix(d[k]); col(n)[id] = o; };
+  const _upd = (n,id,u) => { const o = col(n)[id]; if(!o) throw new Error('Documento inesistente');
+    for(const k in u){ const parts = k.split('.'); let t = o; for(let i=0;i<parts.length-1;i++) t = t[parts[i]] = t[parts[i]] || {};
+      const last = parts[parts.length-1]; if(u[k] === DEL) delete t[last]; else t[last] = fix(u[k]); } };
+  let seq = 0; const newId = () => Date.now().toString(36) + (seq++).toString(36) + Math.random().toString(36).slice(2,6);
+  const ref = (n,id) => ({id, n,
+    get: async () => sdoc(n,id),
+    set: async d => { _set(n,id,d); persist(); },
+    update: async u => { _upd(n,id,u); persist(); },
+    delete: async () => { delete col(n)[id]; persist(); } });
+  const db = {
+    collection: n => ({
+      doc: id => ref(n, id || newId()),
+      add: async d => { const id = newId(); _set(n,id,d); persist(); return ref(n,id); },
+      get: async () => qsnap(n),
+      where: (f,op,v) => ({get: async () => qsnap(n, o => o[f] === v)}),
+      onSnapshot: cb => { const l = {n,cb}; listeners.push(l); setTimeout(() => cb(qsnap(n)), 0); return () => { const i = listeners.indexOf(l); if(i>=0) listeners.splice(i,1); }; }
+    }),
+    batch: () => { const ops = []; return {
+      set: (r,d) => ops.push(() => _set(r.n,r.id,d)),
+      update: (r,u) => ops.push(() => _upd(r.n,r.id,u)),
+      delete: r => ops.push(() => delete col(r.n)[r.id]),
+      commit: async () => { ops.forEach(o => o()); persist(); } }; }
+  };
+  const UK = KEY + '-utente', aL = [];
+  let cur = null; try{ cur = JSON.parse(localStorage.getItem(UK)); }catch(e){}
+  const setU = u => { cur = u; try{ u ? localStorage.setItem(UK, JSON.stringify(u)) : localStorage.removeItem(UK); }catch(e){} aL.forEach(c => c(cur)); };
+  const auth = {
+    onAuthStateChanged: cb => { aL.push(cb); setTimeout(() => cb(cur), 0); },
+    signInWithEmailAndPassword: async e => setU({email:e}),
+    signOut: async () => setU(null)
+  };
+
+  if(!Object.keys(col('articoli')).length){
+    quiet = true; let ord = 0; const arts = [];
+    SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => {
+      const [nome,u,sc,mx] = item.split(':'); const un = (u||unit).trim(); const def = un === 'CT' ? 3 : 5;
+      const scs = sc ? scorteSeed(sc) : {}; if(!sc) SEDI.forEach(s => scs[s.id] = sez === 'Senza glutine' && s.id !== 'senzaglutine' ? 0 : def);
+      const dir = SEZ_DIRETTE[sez]; if(dir) SEDI.forEach(s => scs[s.id] = 0);
+      const mxs = mx ? scorteSeed(mx) : {}; if(!mx) SEDI.forEach(s => mxs[s.id] = scs[s.id]*2);
+      const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)), scorta:scs[s.id], max:mxs[s.id]});
+      const id = newId(); _set('articoli', id, {nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
+    }));
+    SEDI.forEach(s => _set('utenti', `tablet-${s.id}@demo.it`, {sede:s.id}));
+    _set('config','consegne',{'Sal De Riso':'2026-11-26'});
+    const oper = ['Pablo','Marco','Giulia','Sara'];
+    SEDI.forEach((s,si) => {
+      const g = {}; arts.forEach(a => g[a.id] = Math.floor(Math.random()*((a.mxs[s.id]||a.scs[s.id]||3)+1)));
+      for(let w=5; w>=1; w--){
+        const d = lastSunday(); d.setDate(d.getDate() - 7*w); const data = ymd(d);
+        REPARTI.forEach(rp => {
+        const la = arts.filter(a => a.on[s.id].on && a.rep === rp.id);
+        const dettaglio = la.map(a => a.dir ? {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:null, scorta:0, ordine:Math.floor(Math.random()*3), diretto:true}
+          : {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:g[a.id], scorta:a.scs[s.id], max:a.mxs[s.id], ordine:calcOrdine(a.scs[s.id], g[a.id], a.unita, a.mxs[s.id])});
+        const righe = {}; dettaglio.forEach(r => righe[r.id] = r.diretto ? r.ordine : r.g);
+        const chiuso = new Date(d); chiuso.setHours(23, 10 + si*7);
+        _set('conteggi', s.id+'_'+data+'_'+rp.id, {sede:s.id, data, reparto:rp.id, stato:'chiuso', operatore:oper[(si+w)%4], righe, creato:chiuso.toISOString(), chiuso:chiuso.toISOString(), dettaglio});
+        dettaglio.forEach((r,i) => { if(r.diretto) return; let cons = Math.round(Math.random()*r.scorta*0.7);
+          if(w === 2 && i % 37 === 3) cons = r.scorta * 2;
+          let next = r.g + r.ordine - cons; if(w === 2 && i % 53 === 10) next = r.g + r.ordine + 3;
+          g[r.id] = Math.max(0, next); });
+        });
+      }
+    });
+    quiet = false; persist();
+  }
+  return {auth, db, FV:{serverTimestamp: () => TS, delete: () => DEL}};
+}
+
+function loadScript(src){ return new Promise((res,rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Impossibile caricare '+src)); document.head.appendChild(s); }); }
+async function boot(){
+  if(DEMO){ ({auth, db, FV} = makeDemo()); }
+  else {
+    const b = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    await loadScript(b+'firebase-app-compat.js');
+    await loadScript(b+'firebase-auth-compat.js');
+    await loadScript(b+'firebase-firestore-compat.js');
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth(); db = firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    FV = firebase.firestore.FieldValue;
+  }
+  auth.onAuthStateChanged(onAuth);
+}
+boot().catch(e => { app.innerHTML = `<p class="loading" style="text-align:center">Avvio non riuscito: ${esc(e.message)}. Controlla la connessione.</p>`; });
+</script>
+</body>
+</html>
