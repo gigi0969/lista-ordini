@@ -102,7 +102,7 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 .ord header{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:.5rem}
 .ord ul{list-style:none;margin:0 0 1rem;padding:0;flex:1}
 .ord li{padding:.3rem 0;border-bottom:1px dashed #E3E8E1}
-.ord li b{display:inline-block;min-width:4.4rem;font-variant-numeric:tabular-nums}
+.ord li b{display:inline-block;min-width:4.4rem;margin-right:.4rem;font-variant-numeric:tabular-nums}
 .ord-acts,.acts{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
 .acts .sp{flex:1}
 .note{padding:.7rem 1rem;border-radius:8px;margin:0 0 1rem}
@@ -493,11 +493,11 @@ async function ordineAnticipato(i){
       <div class="ord-acts"><a class="btn primary" target="_blank" rel="noopener" data-wa="${j}" href="${waUrl(testoOrdine(c,f,l))}">Invia ordine ${esc(f)} a ${NOME_ORDINI}</a><button class="btn" data-cp="${j}">Copia testo</button></div></article>`).join('')
       : '<p class="empty">Niente sotto scorta: non c\'è niente da ordinare per questa sezione.</p>'}
     <p class="muted small">Dopo l'invio la sezione viene bloccata, così l'ordine non cambia. Alla chiusura della giacenza questo ordine risulterà già inviato.</p>
-    <div class="acts"><span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="segna">${groups.length?'Segna come inviato':'Ok, sezione fatta'}</button></div>`, m => {
+    <div class="acts"><span class="sp"></span><button class="btn" data-close>Annulla</button>${groups.length?'':'<button class="btn primary" id="segna">Ok, sezione fatta</button>'}</div>`, m => {
     m.querySelectorAll('[data-wa]').forEach(a => a.addEventListener('click', () => { segna(); setTimeout(closeModal, 300); }));
     m.querySelectorAll('[data-cp]').forEach(b => b.onclick = () => { const [f,l] = groups[+b.dataset.cp];
       navigator.clipboard.writeText(testoOrdine(c,f,l)).then(()=>{ segna(); toast('Testo copiato, ordine segnato come inviato','ok'); },()=>toast('Copia non riuscita','err')); });
-    m.querySelector('#segna').onclick = () => { segna(); closeModal(); toast('Sezione segnata come inviata','ok'); };
+    const sg = m.querySelector('#segna'); if(sg) sg.onclick = () => { segna(); closeModal(); toast('Sezione segnata come fatta','ok'); };
   });
 }
 
