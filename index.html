@@ -601,13 +601,18 @@ function renderChiuso(){
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f]; const fatto = inv || wa; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
     <div class="ord-acts">${S.admin
-      ? `<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(testoOrdine(c,f,list))}">Inoltra al fornitore</a>`
+      ? `<button class="btn primary" data-share="${i}">Inoltra al fornitore</button>`
       : `<a class="btn${fatto?'':' primary'}" target="_blank" rel="noopener" data-sent data-forn="${esc(f)}" href="${waUrl(testoOrdine(c,f,list))}">${fatto?'Rimanda':'Invia ordine '+esc(f)+' a '+NOME_ORDINI}</a>`}<button class="btn" data-copy="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
     : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':fmtN(r.g)+' '+esc(r.unita)}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
-  main().onclick = e => { const b = e.target.closest('[data-copy]'); if(!b) return;
+  main().onclick = async e => {
+    const sh = e.target.closest('[data-share]');
+    if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
+      if(navigator.share){ try{ await navigator.share({text: t}); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
+      location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
+    const b = e.target.closest('[data-copy]'); if(!b) return;
     const [f,list] = groups[+b.dataset.copy];
     navigator.clipboard.writeText(testoOrdine(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
   if(S.admin){
