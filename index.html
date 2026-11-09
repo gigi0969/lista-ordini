@@ -469,7 +469,7 @@ function footSezione(sec, completa, mancano, compilati){
   const forn = [...new Set(list.map(a => a.fornitore || 'Senza fornitore'))].join(', ');
   const haDir = list.some(a => isDir(a) && c.righe[a.id] > 0);
   if(inv){ const t = new Date(inv); foot.innerHTML = `<span class="pill ok">Ordine ${esc(forn)} inviato alle ${t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</span><button class="link" data-unlock="${i}">Modifica</button>`; }
-  else if((list.some(a => !isDir(a)) && compilati > 0) || haDir){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
+  else if(list.some(a => !isDir(a)) && compilati > 0){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
   else foot.innerHTML = '';
   return false;
 }
@@ -477,7 +477,7 @@ function footSezione(sec, completa, mancano, compilati){
 function righeOrdine(c, list){
   return list.map(a => { const base = {id:a.id, nome:a.nome, unita:a.unita||'', sezione:a.sezione||'', fornitore:a.fornitore||''};
     if(isDir(a)){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
-    const g = c.righe[a.id], sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
+    const g = typeof c.righe[a.id] === 'number' ? c.righe[a.id] : null, sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
     return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx,Number(a.lotto)||0)}; });
 }
 
@@ -554,9 +554,11 @@ async function chiudiConta(){
   const dettaglio = righeOrdine(c, S.contaArts).map(r => inv[r.sezione] ? {...r, inviato:true} : r);
   const doc = {sede:c.sede, data:c.data, reparto:c.reparto, stato:'chiuso', operatore:c.operatore.trim(), righe:c.righe, inviati:inv, creato:c.creato||new Date(), chiuso:new Date(), dettaglio};
   const btn = $('#chiudi'); btn.disabled=true; btn.textContent='Chiusura…';
-  const write = db.collection('conteggi').doc(c.id).set(doc);
   let offline = false;
-  try{ await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
+  try{ /* JSON toglie i campi vuoti (undefined) che Firestore rifiuta */
+    const pulito = {...JSON.parse(JSON.stringify({...doc, creato:null, chiuso:null})), creato: doc.creato, chiuso: doc.chiuso};
+    const write = db.collection('conteggi').doc(c.id).set(pulito);
+    await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
   catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent='Chiudi lista e invia ordini'; return; }
   S.conta = {id:c.id, ...doc}; renderChiuso();
   toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : 'Lista chiusa: ora invia gli ordini','ok');
