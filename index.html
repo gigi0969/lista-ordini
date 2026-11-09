@@ -81,6 +81,10 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 .sez-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--soft)}
 .sez-foot:empty{display:none}
 .sez.locked .stepper{opacity:.55}
+.r-name .tip{display:block;font-size:.78rem;color:var(--muted);font-weight:400}
+.row.anom{border-left-color:var(--amb);background:var(--amb-s)}
+.row.anom .tip{color:var(--amb);font-weight:700}
+.tbl td.hi{background:var(--amb-s);color:var(--amb);font-weight:700}
 .prog{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:.6rem}
 .prog i{display:block;height:100%;width:0;background:var(--basil);transition:width .3s}
 .bar-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
@@ -323,7 +327,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v27'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v28'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -359,7 +363,7 @@ async function onAuth(u){
   ascolta();
 }
 
-const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
+const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
 function shell(){
   app.innerHTML = `<header class="top"><div class="brand">Lista ordini<span>Gruppo Teperino</span></div>
     <div class="who"><span>${S.admin ? 'Gestione' : esc(sedeNome(S.sede))}</span><button class="link" id="logout">Esci</button></div></header>
@@ -378,7 +382,7 @@ async function go(tab){
   }
   S.tab = tab;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
-  ({settimana:renderSettimana, conta:renderContaScelta, storico:renderStorico, analisi:renderAnalisi, catalogo:()=>renderCatalogo(), utenti:renderUtenti})[tab]();
+  ({settimana:renderSettimana, ordini:renderOrdini, conta:renderContaScelta, storico:renderStorico, analisi:renderAnalisi, catalogo:()=>renderCatalogo(), utenti:renderUtenti})[tab]();
 }
 
 /* ============ CONTEGGIO ============ */
@@ -403,6 +407,20 @@ function statoConta(sn, sede, rep, data){
   return {stato:'In corso', cls:'wip', info:`${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati`};
 }
 
+/* Quantità abituali: media degli ordini (quando ordinato) nelle ultime 8 liste chiuse dello stesso reparto */
+async function caricaAbituali(sede, rep, data){
+  S.abituali = {};
+  try{
+    const qs = await db.collection('conteggi').where('sede','==',sede).get();
+    const liste = qs.docs.map(d=>d.data()).filter(d => d.stato==='chiuso' && d.reparto===rep && d.data < data && d.dettaglio).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,8);
+    const acc = {};
+    liste.forEach(l => l.dettaglio.forEach(r => { if(r.ordine > 0){ (acc[r.id] = acc[r.id] || []).push(r.ordine); } }));
+    Object.entries(acc).forEach(([id,v]) => { if(v.length >= 2) S.abituali[id] = r1(avg(v)); });
+  }catch(e){}
+}
+const sogliaInsolita = t => Math.max(t*2, t+2);
+const insolito = (a,v) => isDir(a) && typeof v === 'number' && S.abituali && S.abituali[a.id] > 0 && v > sogliaInsolita(S.abituali[a.id]);
+
 async function openConta(sede,data,rep){
   view('conta','<p class="loading">Caricamento…</p>');
   const id = `${sede}_${data}_${rep}`; let snap;
@@ -410,13 +428,15 @@ async function openConta(sede,data,rep){
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
   S.conta.righe = S.conta.righe || {};
+  if(S.conta.stato !== 'chiuso') await caricaAbituali(sede, rep, data);
   S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
 }
 
 function rowHtml(a,v){
   const done = typeof v === 'number';
-  return `<div class="row${done?' done':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${isDir(a)?' data-dir':''}>
-    <div class="r-name">${esc(a.nome)}<small>${esc(a.fornitore||'')}</small></div>
+  const t = isDir(a) && S.abituali ? S.abituali[a.id] : 0, an = insolito(a,v);
+  return `<div class="row${done?' done':''}${an?' anom':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${isDir(a)?' data-dir':''}>
+    <div class="r-name">${esc(a.nome)}<small>${esc(a.fornitore||'')}</small>${t ? `<span class="tip">${an?'Insolito: di solito':'Di solito'} ${fmtN(t)} ${esc(a.unita||'')}</span>` : ''}</div>
     <div class="stepper"><button type="button" data-act="-" aria-label="Meno">−</button><input inputmode="decimal" autocomplete="off" value="${done?fmtN(v):''}" aria-label="${isDir(a)?'Da ordinare':'Giacenza'} ${esc(a.nome)}"><button type="button" data-act="+" aria-label="Più">+</button></div>
     <span class="u">${esc(a.unita||'')}</span></div>`;
 }
@@ -505,6 +525,8 @@ function setVal(row,v){
   const id = row.dataset.id;
   if(v == null) delete S.conta.righe[id]; else S.conta.righe[id] = v;
   row.classList.toggle('done', v != null); row.classList.remove('flash');
+  const a = S.articoli.find(x => x.id === id), tip = row.querySelector('.tip');
+  if(a && tip){ const an = insolito(a,v); row.classList.toggle('anom', an); tip.textContent = `${an?'Insolito: di solito':'Di solito'} ${fmtN(S.abituali[a.id])} ${a.unita||''}`; }
   updateCounts(); queueSave();
 }
 
@@ -548,6 +570,9 @@ async function chiudiConta(){
   if(!(c.operatore||'').trim()){ toast('Scrivi chi ha fatto il conteggio','err'); $('#oper').focus(); return; }
   const q = $('#q'); if(q.value){ q.value=''; q.dispatchEvent(new Event('input')); }
   const miss = [...document.querySelectorAll('#lista .row:not([data-dir])')].filter(r => typeof c.righe[r.dataset.id] !== 'number');
+  const strani = S.contaArts.filter(a => insolito(a, c.righe[a.id]));
+  if(strani.length && !await ask('Quantità insolite rispetto al solito:\n' + strani.map(a => `- ${a.nome}: ${fmtN(c.righe[a.id])} ${a.unita} (di solito ${fmtN(S.abituali[a.id])})`).join('\n') + '\n\nSono corrette?')){
+    const r = document.querySelector(`#lista .row[data-id="${strani[0].id}"]`); if(r) r.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   if(!await ask((miss.length ? `${miss.length} articoli non compilati: per questi non verrà fatto l'ordine.\n\n` : '') + 'Chiudere la lista e preparare gli ordini?\nDopo la chiusura la lista non si potrà più modificare.')) return;
   clearTimeout(saveT); saveT=null;
   const inv = c.inviati || {};
@@ -680,6 +705,47 @@ async function renderStorico(){
     <tbody>${docs.map(d=>`<tr data-s="${d.sede}" data-d="${d.data}" data-r="${d.reparto}"><td>${fmt(d.data)}</td><td>${esc(sedeNome(d.sede))}</td><td>${repNome(d.reparto)}</td><td><span class="pill ${d.stato==='chiuso'?'ok':'wip'}">${d.stato==='chiuso'?'Chiusa':'In corso'}</span></td><td>${esc(d.operatore||'')}</td><td class="n">${d.dettaglio?d.dettaglio.filter(r=>r.ordine>0).length:''}</td></tr>`).join('')}</tbody></table></div>`
     : '<p class="empty">Nessuna giacenza registrata.</p>';
   $('#sl').onclick = e => { const tr = e.target.closest('tr[data-s]'); if(tr) openConta(tr.dataset.s, tr.dataset.d, tr.dataset.r); };
+}
+
+/* ============ ADMIN: ORDINI ============ */
+function lunedi(ds){ const d = new Date(ds+'T12:00:00'); const g = (d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymd(d); }
+async function renderOrdini(){
+  const sede = S.orSede || SEDI[0].id, solo = !!S.orSolo;
+  view('ordini', `<div class="vhead"><h1>Ordini</h1><select id="os" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}<option value="tutte"${sede==='tutte'?' selected':''}>Confronto tra pizzerie</option></select>
+    ${sede!=='tutte'?`<label class="chk"><input type="checkbox" id="oo"${solo?' checked':''}> Solo anomalie</label>`:''}</div>
+    <p class="muted small">${sede==='tutte' ? 'Media settimanale ordinata nelle ultime 4 settimane. In evidenza le pizzerie che ordinano più di 1,5 volte la media delle altre.' : 'Quantità ordinate per settimana (liste di domenica e giovedì, entrambi i reparti). "Alto": ultima settimana sopra 1,5 volte la media delle precedenti. "Nuovo": mai ordinato nelle settimane precedenti.'}</p>
+    <div id="ob"><p class="loading">Caricamento…</p></div>`);
+  $('#os').onchange = e => { S.orSede = e.target.value; renderOrdini(); };
+  if($('#oo')) $('#oo').onchange = e => { S.orSolo = e.target.checked; renderOrdini(); };
+  let q = db.collection('conteggi'); if(sede !== 'tutte') q = q.where('sede','==',sede);
+  const qs = await q.get(); if(S.view !== 'ordini') return;
+  const liste = qs.docs.map(d=>d.data()).filter(d => d.stato==='chiuso' && d.dettaglio);
+  const info = {}; S.articoli.forEach(a => info[a.id] = a);
+  const sett = {}; /* sett[sede][settimana][id] = qta */
+  liste.forEach(l => { const w = lunedi(l.data); const s = (sett[l.sede] = sett[l.sede] || {}); const m = (s[w] = s[w] || {});
+    l.dettaglio.forEach(r => { if(r.ordine > 0){ m[r.id] = r1((m[r.id]||0) + r.ordine); if(!info[r.id]) info[r.id] = {nome:r.nome, unita:r.unita, sezione:r.sezione, fornitore:r.fornitore}; } }); });
+  if(sede === 'tutte'){
+    const tutteSett = [...new Set(Object.values(sett).flatMap(s => Object.keys(s)))].sort().slice(-4);
+    if(!tutteSett.length){ $('#ob').innerHTML = '<p class="empty">Nessuna lista chiusa.</p>'; return; }
+    const ids = [...new Set(SEDI.flatMap(s => tutteSett.flatMap(w => Object.keys((sett[s.id]||{})[w]||{}))))];
+    const righe = ids.map(id => { const m = SEDI.map(s => { const vs = tutteSett.map(w => ((sett[s.id]||{})[w]||{})[id] || 0); return r1(avg(vs)); }); return {id, a:info[id], m}; })
+      .filter(r => r.a).sort((x,y) => sezIdx(x.a.sezione)-sezIdx(y.a.sezione) || x.a.nome.localeCompare(y.a.nome));
+    $('#ob').innerHTML = `<div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th>${SEDI.map(s=>`<th class="n">${esc(s.nome.replace('Teperino ',''))}</th>`).join('')}</tr></thead><tbody>${righe.map(r => `<tr><td>${esc(r.a.nome)} <small class="muted">${esc(r.a.unita||'')}</small></td>${r.m.map((v,i) => { const altri = r.m.filter((x,j)=>j!==i && x>0); const hi = v>0 && altri.length && v > 1.5*avg(altri) && v - avg(altri) >= 1; return `<td class="n${hi?' hi':''}">${v>0?fmtN(v):''}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return;
+  }
+  const ws = Object.keys(sett[sede]||{}).sort();
+  if(ws.length < 1){ $('#ob').innerHTML = '<p class="empty">Nessuna lista chiusa per questa pizzeria.</p>'; return; }
+  const show = ws.slice(-6), ultima = ws[ws.length-1], prec = ws.slice(-5,-1);
+  const ids = [...new Set(show.flatMap(w => Object.keys(sett[sede][w])))];
+  const righe = ids.map(id => { const vals = show.map(w => sett[sede][w][id] || 0); const last = sett[sede][ultima][id] || 0;
+    const pv = prec.map(w => sett[sede][w][id] || 0); const media = pv.length ? avg(pv) : 0; let flag = '';
+    if(prec.length >= 2 && last > 0){ if(media === 0) flag = 'nuovo'; else if(last > media*1.5 && last - media >= 1) flag = 'alto'; }
+    return {id, a:info[id], vals, media, flag}; }).filter(r => r.a).sort((x,y) => sezIdx(x.a.sezione)-sezIdx(y.a.sezione) || x.a.nome.localeCompare(y.a.nome));
+  const vis = solo ? righe.filter(r => r.flag) : righe;
+  const nA = righe.filter(r=>r.flag==='alto').length, nN = righe.filter(r=>r.flag==='nuovo').length;
+  $('#ob').innerHTML = `<div class="kpis"><div><b>${ws.length}</b>settimane con ordini</div><div class="${nA?'amb':''}"><b>${nA}</b>ordini sopra il solito</div><div class="${nN?'amb':''}"><b>${nN}</b>articoli nuovi</div></div>
+    <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th>${show.map(w=>`<th class="n">sett. ${fmt(w).slice(0,5)}</th>`).join('')}<th class="n">Media</th></tr></thead>
+    <tbody>${vis.map(r=>`<tr class="${r.flag?'alto':''}"><td>${esc(r.a.nome)} <small class="muted">${esc(r.a.unita||'')}, ${esc(r.a.fornitore||'')}</small>${r.flag==='alto'?'<em class="tag amb">alto</em>':r.flag==='nuovo'?'<em class="tag amb">nuovo</em>':''}</td>${r.vals.map(v=>`<td class="n">${v>0?fmtN(v):''}</td>`).join('')}<td class="n">${r.media>0?fmtN(r1(r.media)):''}</td></tr>`).join('') || `<tr><td colspan="${show.length+2}" class="muted">Nessuna anomalia.</td></tr>`}</tbody></table></div>`;
 }
 
 /* ============ ADMIN: CONSUMI ============ */
@@ -896,7 +962,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v27';
+  const KEY = 'giacenze-demo-v28';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
