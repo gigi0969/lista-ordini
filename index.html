@@ -708,7 +708,8 @@ async function renderStorico(){
 }
 
 /* ============ ADMIN: ORDINI ============ */
-function lunedi(ds){ const d = new Date(ds+'T12:00:00'); const g = (d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymd(d); }
+/* settimana di consegna: la lista di domenica e quella del giovedì successivo valgono per la settimana che inizia il lunedì dopo la domenica */
+function lunedi(ds){ const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+1); const g = (d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymd(d); }
 async function renderOrdini(){
   const sede = S.orSede || SEDI[0].id, solo = !!S.orSolo;
   view('ordini', `<div class="vhead"><h1>Ordini</h1><select id="os" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}<option value="tutte"${sede==='tutte'?' selected':''}>Confronto tra pizzerie</option></select>
