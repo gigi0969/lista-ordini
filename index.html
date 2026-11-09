@@ -174,7 +174,7 @@ const waUrl = t => `https://wa.me/${WHATSAPP_ORDINI}?text=${encodeURIComponent(t
 document.addEventListener('click', e => {
   const l = e.target.closest('a[href^="https://wa.me/"]'); if(!l) return;
   e.preventDefault();
-  if(l.hasAttribute('data-sent')){ l.textContent = 'Inviato ✓ (tocca per rimandare)'; l.classList.remove('primary'); }
+  if(l.hasAttribute('data-sent')){ l.textContent = 'Inviato ✓ (tocca per rimandare)'; l.classList.remove('primary'); if(l.dataset.forn) segnaInviatoWa(l.dataset.forn); }
   const testo = decodeURIComponent((l.getAttribute('href').split('?text=')[1]) || '');
   let w = null; try{ w = window.open(l.href, '_blank'); }catch(err){}
   if(w) return;
@@ -212,9 +212,9 @@ const SEED = [
  ['Liquori','Sanfelici','Bottiglia','Liquore pistacchio:Bottiglia:2,2,2,0:3,3,3,0|Limoncello:Bottiglia:2,2,2,0:3,3,3,0|Liquore crema babà:Bottiglia:2,2,2,0:3,3,3,0|Liquore liquirizia:Bottiglia:2,2,2,0:3,3,3,0|Viagroncello:Bottiglia:2,2,2,0:3,3,3,0|Meloncino:Bottiglia:2,2,2,0:3,3,3,0'],
  ['Caffetteria Bonetti','Bonetti','PZ','Caffè|Deca|Orzo|Zucchero|Zucchero di canna'],
  ['Bibite','Doreca','CT','Acqua gas 0,5|Acqua nat 0,5|Acqua personale gas|Acqua personale/bar nat|Birra 66 Moretti/Peroni|Coca 1,5 lt plastica|Coca lattina|Coca Zero lattina|Coca senza caffeina lattina|Coca vetro 33|Coca Zero vetro 33|Fanta vetro 33|Sprite vetro 33|Estathe lattina limone|Estathe lattina pesca'],
- ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla rossa:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Patate fresche:KG|Peperoni:Cassa|Pomodorini:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
+ ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla rossa:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Patate fresche:KG|Peperoni:Cassa|Pomodorini:KG|Pomodoro cuore di bue:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
  ['Salumi e formaggi','Le Bontà del Re','PZ','Bresaola|Capocollo Martina Franca|Ciccioli|Coppa Piacentina DOP|Gorgonzola IGP|Grattugiato|Mortadella IGP|Pecorino Romano DOP|Porchetta|Salame Napoli|Salsiccia|Speck|Uova (10)|Ventricina|Wurstel'],
- ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Cozze|Fagioli|Gamberetti|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panko|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale|Vongole'],
+ ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale'],
  ['Pulizie','Metro','PZ','Ajax bagno|Alcool|Candeggina|Detersivo filtri cappa|Detersivo lavabicchieri|Detersivo pavimenti|Detersivo piatti Svelto|Disinfettante|Disinfettante mani|Guanti lattice|Microfibre|Mocio|Napisan spray limone|Retine|Sacchi pattume|Sacchi trasparenti|Scopa|Sgrassatore|Smacchiatore|Spugnette|Vetril|Viakal|WC Net'],
  ['Materiale di consumo','CCM','PZ','Bobine|Brillantante|Carta igienica|Carta mani|Carta oleata|Detersivo lavastoviglie|Sacchetti carta|Sapone mani|Shopper|Tovaglioli sala'],
  ['Centro Cassa','Centro Cassa','CT','Rotoli grandi|Rotoli piccoli']
@@ -323,7 +323,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v25'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v27'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -398,7 +398,8 @@ function statoConta(sn, sede, rep, data){
   const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
   if(!sn.exists) return {stato:'Da fare', cls:'todo', info:`${gArts.length} articoli da contare`};
   const c = sn.data();
-  if(c.stato==='chiuso') return {stato:'Chiusa', cls:'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare`};
+  if(c.stato==='chiuso'){ const m = fornitoriDaInviare(c);
+    return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}`}; }
   return {stato:'In corso', cls:'wip', info:`${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati`};
 }
 
@@ -566,6 +567,19 @@ function testoOrdine(c,f,list){
   return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
 }
 
+function fornitoriDaInviare(c){
+  const inv = c.inviatiWa || {};
+  const forn = [...new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'))];
+  return forn.filter(f => !inv[f]);
+}
+async function segnaInviatoWa(f){
+  const c = S.conta; if(!c || c.stato !== 'chiuso' || S.admin) return;
+  c.inviatiWa = {...(c.inviatiWa||{}), [f]: new Date().toISOString()};
+  try{ await db.collection('conteggi').doc(c.id).update({inviatiWa: c.inviatiWa}); }catch(e){}
+  if(S.view === 'conta') setTimeout(() => { if(S.conta === c) renderChiuso(); }, 800);
+}
+const oraBreve = iso => { const d = new Date(iso); return d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); };
+
 function renderChiuso(){
   const c = S.conta, det = c.dettaglio || [];
   const ord = det.filter(r => r.ordine > 0);
@@ -578,10 +592,15 @@ function renderChiuso(){
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
     ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
   ${S.admin && senza ? `<p class="note warn">${senza} articoli non hanno minimo né massimo per questa pizzeria e non generano ordini. Impostali in Catalogo e scorte.</p>` : ''}
-  <h2 class="h2">Ordini da inviare</h2><p class="muted" style="margin:-.4rem 0 .8rem">Un messaggio per ogni fornitore: invia ${esc(NOME_ORDINI)} ognuno, così li inoltra direttamente.</p>
-  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>`<article class="ord"${inv?' style="opacity:.75"':''}><header><h3>${esc(f)}</h3>${inv?'<span class="pill ok">Già inviato</span>':`<span class="muted small">${list.length} articoli</span>`}</header>
+  <h2 class="h2">Ordini da inviare</h2>
+  ${(() => { const m = fornitoriDaInviare(c); return m.length
+      ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Non ancora inviati dal locale' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? ' Puoi inoltrarli tu con "Inoltra al fornitore".' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
+      : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">Tutti gli ordini sono stati inviati.</p>` : ''); })()}
+  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f]; const fatto = inv || wa; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
-    <div class="ord-acts"><a class="btn primary" target="_blank" rel="noopener" data-sent href="${waUrl(testoOrdine(c,f,list))}">Invia ordine ${esc(f)} a ${NOME_ORDINI}</a><button class="btn" data-copy="${i}">Copia testo</button></div></article>`).join('')}</div>`
+    <div class="ord-acts">${S.admin
+      ? `<a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(testoOrdine(c,f,list))}">Inoltra al fornitore</a>`
+      : `<a class="btn${fatto?'':' primary'}" target="_blank" rel="noopener" data-sent data-forn="${esc(f)}" href="${waUrl(testoOrdine(c,f,list))}">${fatto?'Rimanda':'Invia ordine '+esc(f)+' a '+NOME_ORDINI}</a>`}<button class="btn" data-copy="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
     : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
@@ -835,7 +854,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v25';
+  const KEY = 'giacenze-demo-v27';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
