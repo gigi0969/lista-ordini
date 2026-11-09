@@ -489,7 +489,6 @@ function footSezione(sec, completa, mancano, compilati){
   const forn = [...new Set(list.map(a => a.fornitore || 'Senza fornitore'))].join(', ');
   const haDir = list.some(a => isDir(a) && c.righe[a.id] > 0);
   if(inv){ const t = new Date(inv); foot.innerHTML = `<span class="pill ok">Ordine ${esc(forn)} inviato alle ${t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</span><button class="link" data-unlock="${i}">Modifica</button>`; }
-  else if(list.some(a => !isDir(a)) && compilati > 0){ foot.innerHTML = `<span class="muted small">${completa ? 'Sezione completa' : `${mancano} non compilati: non vengono ordinati`}</span><button class="btn primary" data-anticipo="${i}">Invia subito l'ordine ${esc(forn)}</button>`; return true; }
   else foot.innerHTML = '';
   return false;
 }
