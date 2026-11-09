@@ -587,8 +587,9 @@ function renderChiuso(){
   const ord = det.filter(r => r.ordine > 0);
   const senza = det.filter(r => !r.diretto && !(r.scorta > 0) && !(r.max > 0)).length;
   const cd = toDate(c.chiuso);
-  const gm = new Map(); ord.forEach(r => { const k = (r.fornitore||'Senza fornitore') + (r.inviato ? '\u0001' : ''); if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
-  const groups = [...gm].map(([k,l]) => [k.replace('\u0001',''), l, k.endsWith('\u0001')]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
+  /* un solo ordine per fornitore; "già inviato" solo se tutte le sue righe erano state inviate in anticipo */
+  const gm = new Map(); ord.forEach(r => { const k = r.fornitore||'Senza fornitore'; if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
+  const groups = [...gm].map(([k,l]) => [k, l, l.every(r => r.inviato)]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
   view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
   <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
