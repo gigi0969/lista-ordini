@@ -570,9 +570,9 @@ function testoOrdine(c,f,list){
 }
 
 function fornitoriDaInviare(c){
-  const inv = c.inviatiWa || {};
+  const inv = c.inviatiWa || {}, inol = c.inoltrati || {};
   const forn = [...new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'))];
-  return forn.filter(f => !inv[f]);
+  return forn.filter(f => !inv[f] && !inol[f]);
 }
 async function segnaInviatoWa(f){
   const c = S.conta; if(!c || c.stato !== 'chiuso' || S.admin) return;
@@ -596,10 +596,13 @@ function renderChiuso(){
     ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
   ${S.admin && senza ? `<p class="note warn">${senza} articoli non hanno minimo né massimo per questa pizzeria e non generano ordini. Impostali in Catalogo e scorte.</p>` : ''}
   <h2 class="h2">Ordini da inviare</h2>
-  ${(() => { const m = fornitoriDaInviare(c); return m.length
+  ${S.admin ? (() => { const all = [...new Set(ord.map(r => r.fornitore || 'Senza fornitore'))]; const m = all.filter(f => !(c.inoltrati||{})[f]);
+      return !all.length ? '' : m.length ? `<p class="note warn" style="font-weight:700">Da inoltrare ai fornitori: ${m.map(esc).join(', ')}.</p>` : `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">Tutti gli ordini sono stati inoltrati ai fornitori.</p>`; })() : (() => { const m = fornitoriDaInviare(c); return m.length
       ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Non ancora inviati dal locale' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? ' Puoi inoltrarli tu con "Inoltra al fornitore".' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
       : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">Tutti gli ordini sono stati inviati.</p>` : ''); })()}
-  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f]; const fatto = inv || wa; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`}</header>
+  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
+      ? (fw ? `<span class="pill ok">Inoltrato al fornitore alle ${oraBreve(fw)}</span>` : (wa||inv) ? `<span class="pill wip">Ricevuto${wa?' alle '+oraBreve(wa):''}, da inoltrare</span>` : `<span class="pill todo">Non ricevuto, da inoltrare</span>`)
+      : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
     <div class="ord-acts">${S.admin
       ? `<button class="btn primary" data-share="${i}">Inoltra al fornitore</button>`
@@ -611,8 +614,10 @@ function renderChiuso(){
   main().onclick = async e => {
     const sh = e.target.closest('[data-share]');
     if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
-      if(navigator.share){ try{ await navigator.share({text: t}); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
-      location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
+      const segnaInoltro = async () => { c.inoltrati = {...(c.inoltrati||{}), [f]: new Date().toISOString()};
+        try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} if(S.conta === c) renderChiuso(); };
+      if(navigator.share){ try{ await navigator.share({text: t}); await segnaInoltro(); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
+      await segnaInoltro(); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
     const b = e.target.closest('[data-copy]'); if(!b) return;
     const [f,list] = groups[+b.dataset.copy];
     navigator.clipboard.writeText(testoOrdine(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
@@ -748,7 +753,7 @@ function renderCatalogo(keep){
   const groups = [...groupBy(S.articoli,'sezione')];
   const forn = [...groupBy(S.articoli, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
   const np = Object.keys(S.catPending).length;
-  view('catalogo', `<div class="vhead"><h1>Catalogo e scorte</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button></div>
+  view('catalogo', `<div class="vhead"><h1>Catalogo e scorte</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button><button class="btn" id="allinea">Aggiorna catalogo</button></div>
     <div class="note warn"><label class="chk"><input type="checkbox" id="galc"${(S.impostazioni||{}).giacenzaAlcolici?' checked':''}> <b>Giacenza su vini, bollicine, amari e distillati</b></label>
     <div class="small" style="margin-top:.3rem">Spenta: i ragazzi scrivono solo cosa ordinare. Accesa: contano le bottiglie e l'ordine lo calcola l'app con min e max (all'accensione, dove mancano, vengono messi min 1 e max 2).</div></div>
     <p class="muted small"><b>Min</b>: sotto questa giacenza si ordina. <b>Max</b>: la quantità da raggiungere con l'ordine (ordine = max − giacenza). Esempio Farina Lucia min 10, max 45: con 7 sacchi ordina 38, con 12 non ordina. Senza max l'ordine riporta solo al minimo; senza min e max l'articolo viene contato ma non ordinato. Tocca il nome per modificarlo.</p>
@@ -762,6 +767,7 @@ function renderCatalogo(keep){
     S.catPending = {}; S.catSede = e.target.value; renderCatalogo(true);
   };
   $('#nuovo').onclick = () => editArticolo(null);
+  $('#allinea').onclick = allineaCatalogo;
   $('#galc').onchange = async e => {
     const on = e.target.checked;
     if(!await ask(on ? 'Attivare la giacenza su vini, bollicine, amari e distillati in tutte le pizzerie?' : 'Tornare all\'ordine diretto per vini, bollicine, amari e distillati?')){ e.target.checked = !on; return; }
@@ -832,6 +838,34 @@ function editArticolo(id){
     if(del) del.onclick = async () => { if(!await ask(`Eliminare "${a.nome}" dal catalogo? Lo storico delle giacenze resta.`)) return;
       await db.collection('articoli').doc(id).delete(); delete S.catPending[id]; closeModal(); toast('Articolo eliminato','ok'); };
   });
+}
+
+/* Allinea il catalogo salvato a quello standard: aggiunge i nuovi articoli, elimina quelli tolti, imposta i multipli e le sezioni per sede */
+async function allineaCatalogo(){
+  const key = s => s.trim().toLowerCase();
+  const std = []; let ord = Math.max(0, ...S.articoli.map(x=>x.ordine||0)) + 1;
+  SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => { const [nome,u,sc,mx] = item.split(':'); std.push({sez,forn,unit:(u||unit).trim(),nome:nome.trim(),sc,mx}); }));
+  const stdNomi = new Set(std.map(x => key(x.nome)));
+  const dbNomi = new Set(S.articoli.map(a => key(a.nome)));
+  const nuovi = std.filter(x => !dbNomi.has(key(x.nome)));
+  const tolti = S.articoli.filter(a => !stdNomi.has(key(a.nome)));
+  const lotti = S.articoli.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
+  const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
+  if(!nuovi.length && !tolti.length && !lotti.length && !sezSede.length){ toast('Il catalogo è già allineato','ok'); return; }
+  const righe = [];
+  if(nuovi.length) righe.push('Da aggiungere: ' + nuovi.map(x=>x.nome).join(', '));
+  if(tolti.length) righe.push('Da eliminare: ' + tolti.map(a=>a.nome).join(', '));
+  if(lotti.length) righe.push('Multipli d\'ordine: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
+  if(sezSede.length) righe.push('Sezioni non usate disattivate per: ' + SEDI.filter(s=>SEZ_SOLO[s.id]).map(s=>s.nome).join(', '));
+  if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
+  const b = db.batch();
+  nuovi.forEach(x => { const scs = scorteSeed(x.sc), mxs = scorteSeed(x.mx), dir = SEZ_DIRETTE[x.sez]; const sedi = {};
+    SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(x.sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
+    b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
+  tolti.forEach(a => b.delete(db.collection('articoli').doc(a.id)));
+  lotti.forEach(a => b.update(db.collection('articoli').doc(a.id), {lotto: LOTTI_SEED[a.nome]}));
+  sezSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!sezInSede(a.sezione,s.id)) u[`sedi.${s.id}.on`] = false; }); if(!tolti.includes(a)) b.update(db.collection('articoli').doc(a.id), u); });
+  await b.commit(); toast('Catalogo aggiornato','ok');
 }
 
 async function seedCatalogo(){
