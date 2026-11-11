@@ -621,10 +621,14 @@ function testoOrdine(c,f,list){
   return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
 }
 
+/* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
+const STATI_DAL = '2026-11-09';
+const conStati = c => (c.data||'') >= STATI_DAL;
 function fornitoriDaInviare(c){
+  if(!conStati(c)) return [];
   const inv = c.inviatiWa || {}, inol = c.inoltrati || {};
   const forn = [...new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'))];
-  return forn.filter(f => !inv[f] && !inol[f]);
+  return forn.filter(f => !inv[f]);
 }
 async function segnaInviatoWa(f){
   const c = S.conta; if(!c || c.stato !== 'chiuso' || S.admin) return;
@@ -648,12 +652,11 @@ function renderChiuso(){
     ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
   ${S.admin && senza ? `<p class="note warn">${senza} articoli non hanno minimo né massimo per questa pizzeria e non generano ordini. Impostali in Catalogo e scorte.</p>` : ''}
   <h2 class="h2">Ordini da inviare</h2>
-  ${S.admin ? (() => { const all = [...new Set(ord.map(r => r.fornitore || 'Senza fornitore'))]; const m = all.filter(f => !(c.inoltrati||{})[f]);
-      return !all.length ? '' : m.length ? `<p class="note warn" style="font-weight:700">Da inoltrare ai fornitori: ${m.map(esc).join(', ')}.</p>` : `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">Tutti gli ordini sono stati inoltrati ai fornitori.</p>`; })() : (() => { const m = fornitoriDaInviare(c); return m.length
-      ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Non ancora inviati dal locale' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? ' Puoi inoltrarli tu con "Inoltra al fornitore".' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
-      : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">Tutti gli ordini sono stati inviati.</p>` : ''); })()}
+  ${!conStati(c) ? '' : (() => { const m = fornitoriDaInviare(c); return m.length
+      ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Il locale non ti ha ancora inviato' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
+      : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? 'Il locale ti ha inviato tutti gli ordini.' : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
-      ? (fw ? `<span class="pill ok">Inoltrato al fornitore alle ${oraBreve(fw)}</span>` : (wa||inv) ? `<span class="pill wip">Ricevuto${wa?' alle '+oraBreve(wa):''}, da inoltrare</span>` : `<span class="pill todo">Non ricevuto, da inoltrare</span>`)
+      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
     <div class="ord-acts">${S.admin
@@ -664,10 +667,13 @@ function renderChiuso(){
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
   main().onclick = async e => {
+    const sg = e.target.closest('[data-segna]'), tt = e.target.closest('[data-tutti]');
+    if(sg || tt){ const ora = new Date().toISOString(); c.inoltrati = {...(c.inoltrati||{})};
+      (tt ? groups : [groups[+sg.dataset.segna]]).forEach(([f]) => { if(!c.inoltrati[f]) c.inoltrati[f] = ora; });
+      try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} renderChiuso(); return; }
     const sh = e.target.closest('[data-share]');
     if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
-      const segnaInoltro = async () => { c.inoltrati = {...(c.inoltrati||{}), [f]: new Date().toISOString()};
-        try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} if(S.conta === c) renderChiuso(); };
+      const segnaInoltro = async () => {};
       if(navigator.share){ try{ await navigator.share({text: t}); await segnaInoltro(); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
       await segnaInoltro(); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
     const b = e.target.closest('[data-copy]'); if(!b) return;
