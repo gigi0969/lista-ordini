@@ -569,6 +569,14 @@ async function chiudiConta(){
   if(!(c.operatore||'').trim()){ toast('Scrivi chi ha fatto il conteggio','err'); $('#oper').focus(); return; }
   const q = $('#q'); if(q.value){ q.value=''; q.dispatchEvent(new Event('input')); }
   const miss = [...document.querySelectorAll('#lista .row:not([data-dir])')].filter(r => typeof c.righe[r.dataset.id] !== 'number');
+  /* Giacenza Sanfelici obbligatoria: l'ordine si calcola da lì */
+  const OBBLIGATORI = ['Sanfelici'];
+  const missObb = miss.filter(r => { const a = S.contaArts.find(x => x.id === r.dataset.id); return a && OBBLIGATORI.includes(a.fornitore); });
+  if(missObb.length){
+    missObb.forEach(r => r.classList.add('flash'));
+    missObb[0].scrollIntoView({behavior:'smooth',block:'center'});
+    toast(`Giacenza Sanfelici obbligatoria: mancano ${missObb.length} articoli. Se un articolo è finito scrivi 0.`,'err'); return;
+  }
   const strani = S.contaArts.filter(a => insolito(a, c.righe[a.id]));
   if(strani.length && !await ask('Quantità insolite rispetto al solito:\n' + strani.map(a => `- ${a.nome}: ${fmtN(c.righe[a.id])} ${a.unita} (di solito ${fmtN(S.abituali[a.id])})`).join('\n') + '\n\nSono corrette?')){
     const r = document.querySelector(`#lista .row[data-id="${strani[0].id}"]`); if(r) r.scrollIntoView({behavior:'smooth',block:'center'}); return; }
@@ -634,7 +642,7 @@ function renderChiuso(){
     : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
-    <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':fmtN(r.g)+' '+esc(r.unita)}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
+    <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
   main().onclick = async e => {
     const sh = e.target.closest('[data-share]');
     if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
