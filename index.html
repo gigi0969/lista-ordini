@@ -715,8 +715,7 @@ async function renderSettimana(){
     const righe = mie.map(c => { const st = statoConta({exists:true, data:()=>c}, s.id, c.reparto, c.data);
       return {cls:st.cls, html:`<span class="sc-info" data-open="${s.id}|${c.data}|${c.reparto}" style="cursor:pointer"><span class="pill ${st.cls}">${st.stato}</span> ${dayName(c.data).slice(0,3)} ${fmt(c.data).slice(0,5)}, ${repNome(c.reparto)}: ${st.info}</span>`}; });
     const cls = !righe.length ? 'todo' : righe.every(r=>r.cls==='ok') ? 'ok' : 'wip';
-    return `<div class="sede-card ${cls}"><span class="sc-name">${esc(s.nome)}</span>${righe.map(r=>r.html).join('') || '<span class="sc-info">Nessuna lista negli ultimi 7 giorni</span>'}
-      <button class="link" data-nuova="${s.id}">Apri la lista di oggi</button></div>`;
+    return `<div class="sede-card ${cls}"><span class="sc-name">${esc(s.nome)}</span>${righe.map(r=>r.html).join('') || '<span class="sc-info">Nessuna lista negli ultimi 7 giorni</span>'}</div>`;
   }).join('');
   $('#sw').onclick = e => { const o = e.target.closest('[data-open]'); if(o){ const [s,d,r] = o.dataset.open.split('|'); openConta(s,d,r); return; }
     const n = e.target.closest('[data-nuova]'); if(n) openSede(n.dataset.nuova, oggi); };
