@@ -217,7 +217,7 @@ const SEED = [
  ['Caffetteria Bonetti','Bonetti','PZ','Caffè|Deca|Orzo|Zucchero|Zucchero di canna'],
  ['Bibite','Doreca','CT','Acqua gas 0,5|Acqua nat 0,5|Acqua personale gas|Acqua personale/bar nat|Birra 66 Moretti/Peroni|Coca 1,5 lt plastica|Coca lattina|Coca Zero lattina|Coca senza caffeina lattina|Coca vetro 33|Coca Zero vetro 33|Fanta vetro 33|Sprite vetro 33|Estathe lattina limone|Estathe lattina pesca'],
  ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla rossa:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Patate fresche:KG|Peperoni:Cassa|Pomodorini:KG|Pomodoro cuore di bue:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
- ['Salumi e formaggi','Le Bontà del Re','PZ','Bresaola|Capocollo Martina Franca|Ciccioli|Coppa Piacentina DOP|Gorgonzola IGP|Grattugiato|Mortadella IGP|Pecorino Romano DOP|Porchetta|Salame Napoli|Salsiccia|Speck|Uova (10)|Ventricina|Wurstel'],
+ ['Salumi e formaggi','Le Bontà del Re','PZ','Bresaola|Capocollo Martina Franca|Ciccioli|Coppa Piacentina DOP|Gorgonzola IGP|Grattugiato|Mortadella IGP|Pancetta al pepe|Pecorino Romano DOP|Porchetta|Salame Napoli|Salsiccia|Speck|Uova (10)|Ventricina|Wurstel'],
  ['Varie','Metro','PZ','Aceto|Besciamella|Bucatini|Burro|Cannucce bar nere|Carta forno|Carta paglia 60x40|Carta stagnola|Centrini fritti|Contenitori alluminio|Ghiaccio|Granella di pistacchio Bronte|Grissini|Ketchup bustine|Latte bar con tappo|Lievito|Mais|Maionese bustine|Margarina|Mozzarella senza lattosio|Mozzarella vegana|Noci sgusciate|Nutella|Olio friggitrice|Olio girasole 5 lt|Olive denocciolate|Pane grattugiato|Panna|Patatine chips|Patatine da friggere|Patatine con buccia|Pellicola|Pepe|Peperoncino|Pinoli|Piselli|Riso|Sale|Sale depuratore|Scaglie|Semola|Stracchino|Stuzzicadenti|Taralli|Tovaglioli personale'],
  ['Pulizie','Metro','PZ','Ajax bagno|Alcool|Candeggina|Detersivo filtri cappa|Detersivo lavabicchieri|Detersivo pavimenti|Detersivo piatti Svelto|Disinfettante|Disinfettante mani|Guanti lattice|Microfibre|Mocio|Napisan spray limone|Retine|Sacchi pattume|Sacchi trasparenti|Scopa|Sgrassatore|Smacchiatore|Spugnette|Vetril|Viakal|WC Net'],
  ['Materiale di consumo','CCM','PZ','Bobine|Brillantante|Carta igienica|Carta mani|Carta oleata|Detersivo lavastoviglie|Sacchetti carta|Sapone mani|Shopper|Tovaglioli sala'],
@@ -590,7 +590,7 @@ async function chiudiConta(){
 
 function testoOrdine(c,f,list){
   const sez = [...groupBy(list, r => r.sezione || 'Altro')];
-  return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
+  return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
 }
 
 function fornitoriDaInviare(c){
@@ -633,7 +633,7 @@ function renderChiuso(){
       : `<a class="btn${fatto?'':' primary'}" target="_blank" rel="noopener" data-sent data-forn="${esc(f)}" href="${waUrl(testoOrdine(c,f,list))}">${fatto?'Rimanda':'Invia ordine '+esc(f)+' a '+NOME_ORDINI}</a>`}<button class="btn" data-copy="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
     : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
-    <thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
+    <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':fmtN(r.g)+' '+esc(r.unita)}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
   main().onclick = async e => {
     const sh = e.target.closest('[data-share]');
