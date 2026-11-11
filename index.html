@@ -280,13 +280,17 @@ const sezInSede = (sez,sede) => !SEZ_SOLO[sede] || SEZ_SOLO[sede].includes(sez);
 const isDir = a => !!a.diretto && !((S.impostazioni||{}).giacenzaAlcolici && SEZ_ALCOLICI.includes(a.sezione));
 /* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
 const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
-function listaPrima(consegna){ const x = new Date(consegna+'T12:00:00'); do { x.setDate(x.getDate()-1); } while(!GIORNI_LISTA.includes(x.getDay())); return ymd(x); }
+/* Le liste si possono fare in qualsiasi giorno. Dopo mezzanotte (fino alle 6) la lista vale ancora per il giorno prima. */
+function oggiLista(){ const x = new Date(Date.now() - 6*3600*1000); x.setHours(12,0,0,0); return x; }
+const addGiorni = (ds,n) => { const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n); return ymd(d); };
+/* Sal De Riso: compare nelle liste dei 7 giorni prima della consegna, finché non è stato ordinato */
+const finestraProg = d => [addGiorni(d,-7), addGiorni(d,-1)];
 const inGiorno = (a,data) => {
   const g = GIORNI_FORNITORE[a.fornitore]; if(g && !g.includes(new Date(data+'T12:00:00').getDay())) return false;
-  if(FORNITORI_PROGRAMMATI.includes(a.fornitore)){ const d = (S.consegne||{})[a.fornitore]; return !d || listaPrima(d) === data; }
+  if(FORNITORI_PROGRAMMATI.includes(a.fornitore)){ const d = (S.consegne||{})[a.fornitore]; if(!d) return true; const [da,a2] = finestraProg(d); return data >= da && data <= a2 && !(S.progOrdinati||{})[a.fornitore]; }
   return true;
 };
-function ultimaLista(){ const x = new Date(); x.setHours(12,0,0,0); while(!GIORNI_LISTA.includes(x.getDay())) x.setDate(x.getDate()-1); return x; }
+function ultimaLista(){ return oggiLista(); }
 function lastSunday(){ const x = new Date(); x.setHours(12,0,0,0); x.setDate(x.getDate()-x.getDay()); return x; }
 const fmt = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
 const dayName = s => new Date(s+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long'});
@@ -327,7 +331,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v28'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v29'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -374,7 +378,14 @@ function shell(){
   if(S.admin) $('.tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if(b) go(b.dataset.tab); };
   main().addEventListener('click', e => { if(e.target.closest('[data-back]')) go(S.tab); else if(e.target.closest('[data-sedeback]')) openSede(S.conta.sede, S.conta.data); });
 }
-function route(){ if(S.admin) go(S.tab); else openSede(S.sede, ymd(ultimaLista())); }
+async function route(){
+  if(S.admin){ go(S.tab); return; }
+  const oggi = ymd(oggiLista()); let data = oggi;
+  try{ const qs = await db.collection('conteggi').where('sede','==',S.sede).get();
+    const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-3)).sort((a,b)=>b.data.localeCompare(a.data));
+    if(aperte.length) data = aperte[0].data; }catch(e){}
+  openSede(S.sede, data);
+}
 async function go(tab){
   if(S.view==='catalogo' && Object.keys(S.catPending).length && tab!=='catalogo'){
     if(!await ask('Ci sono modifiche alle scorte non salvate. Uscire senza salvare?')) return;
@@ -421,6 +432,15 @@ async function caricaAbituali(sede, rep, data){
 const sogliaInsolita = t => Math.max(t*2, t+2);
 const insolito = (a,v) => isDir(a) && typeof v === 'number' && S.abituali && S.abituali[a.id] > 0 && v > sogliaInsolita(S.abituali[a.id]);
 
+async function caricaProgOrdinati(sede, data, escludiId){
+  S.progOrdinati = {};
+  try{
+    const qs = await db.collection('conteggi').where('sede','==',sede).get();
+    FORNITORI_PROGRAMMATI.forEach(f => { const d = (S.consegne||{})[f]; if(!d) return; const [da,a2] = finestraProg(d);
+      S.progOrdinati[f] = qs.docs.some(x => { const c = x.data(); return x.id !== escludiId && c.stato==='chiuso' && c.data >= da && c.data <= a2 && (c.dettaglio||[]).some(r => r.fornitore===f && typeof r.g==='number'); }); });
+  }catch(e){}
+}
+
 async function openConta(sede,data,rep){
   view('conta','<p class="loading">Caricamento…</p>');
   const id = `${sede}_${data}_${rep}`; let snap;
@@ -428,7 +448,7 @@ async function openConta(sede,data,rep){
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
   S.conta.righe = S.conta.righe || {};
-  if(S.conta.stato !== 'chiuso') await caricaAbituali(sede, rep, data);
+  if(S.conta.stato !== 'chiuso'){ await caricaAbituali(sede, rep, data); await caricaProgOrdinati(sede, data, id); }
   S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
 }
 
@@ -672,25 +692,28 @@ function exportCSV(c){
 
 /* ============ ADMIN: SETTIMANA ============ */
 async function renderSettimana(){
-  const data = S.setData || ymd(ultimaLista());
-  view('settimana', `<div class="vhead"><h1>Settimana</h1><label class="fld inline">Lista del&nbsp;<input type="date" id="sd" value="${data}"></label></div>
-    <div class="note warn" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">${FORNITORI_PROGRAMMATI.map(f => { const d = (S.consegne||{})[f];
-      return `<label class="fld inline" style="gap:.4rem">Prossima consegna ${esc(f)}<input type="date" data-cons="${esc(f)}" value="${d||''}"></label><span class="small">${d ? `si ordina nella lista di ${dayName(listaPrima(d))} ${fmt(listaPrima(d))}` : 'non impostata: compare in tutte le liste'}</span>`; }).join('')}</div>
+  const oggi = ymd(oggiLista()), da = addGiorni(oggi,-7);
+  view('settimana', `<div class="vhead"><h1>Ultimi 7 giorni</h1></div>
+    <div class="note warn" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">${FORNITORI_PROGRAMMATI.map(f => { const d = (S.consegne||{})[f]; const w = d ? finestraProg(d) : null;
+      return `<label class="fld inline" style="gap:.4rem">Prossima consegna ${esc(f)}<input type="date" data-cons="${esc(f)}" value="${d||''}"></label><span class="small">${d ? `compare nelle liste dal ${fmt(w[0])} al ${fmt(w[1])}, finché non viene ordinato` : 'non impostata: compare in tutte le liste'}</span>`; }).join('')}</div>
     <div id="sw" class="sedi-grid"><p class="loading">Caricamento…</p></div>`);
-  $('#sd').onchange = e => { S.setData = e.target.value; renderSettimana(); };
   main().querySelectorAll('[data-cons]').forEach(i => i.onchange = async () => {
     S.consegne = {...(S.consegne||{}), [i.dataset.cons]: i.value || null};
     await db.collection('config').doc('consegne').set(S.consegne); toast('Consegna salvata','ok'); renderSettimana(); });
-  let snaps;
-  try{ snaps = await Promise.all(SEDI.flatMap(s => REPARTI.map(r => db.collection('conteggi').doc(`${s.id}_${data}_${r.id}`).get()))); }
+  let docs;
+  try{ const qs = await db.collection('conteggi').get(); docs = qs.docs.map(d => ({id:d.id, ...d.data()})).filter(d => d.data >= da); }
   catch(e){ $('#sw').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
   if(S.view!=='settimana') return;
-  $('#sw').innerHTML = SEDI.map((s,i) => {
-    const st = REPARTI.map((r,j) => statoConta(snaps[i*REPARTI.length+j], s.id, r.id, data));
-    const cls = st.every(x=>x.cls==='ok') ? 'ok' : st.every(x=>x.cls==='todo') ? 'todo' : 'wip';
-    return `<button class="sede-card ${cls}" data-s="${s.id}"><span class="sc-name">${esc(s.nome)}</span>${REPARTI.map((r,j)=>`<span class="sc-info"><span class="pill ${st[j].cls}">${st[j].stato}</span> ${r.nome}: ${st[j].info}</span>`).join('')}</button>`;
+  $('#sw').innerHTML = SEDI.map(s => {
+    const mie = docs.filter(d => d.sede === s.id).sort((a,b)=>b.data.localeCompare(a.data) || (a.reparto||'').localeCompare(b.reparto||''));
+    const righe = mie.map(c => { const st = statoConta({exists:true, data:()=>c}, s.id, c.reparto, c.data);
+      return {cls:st.cls, html:`<span class="sc-info" data-open="${s.id}|${c.data}|${c.reparto}" style="cursor:pointer"><span class="pill ${st.cls}">${st.stato}</span> ${dayName(c.data).slice(0,3)} ${fmt(c.data).slice(0,5)}, ${repNome(c.reparto)}: ${st.info}</span>`}; });
+    const cls = !righe.length ? 'todo' : righe.every(r=>r.cls==='ok') ? 'ok' : 'wip';
+    return `<div class="sede-card ${cls}"><span class="sc-name">${esc(s.nome)}</span>${righe.map(r=>r.html).join('') || '<span class="sc-info">Nessuna lista negli ultimi 7 giorni</span>'}
+      <button class="link" data-nuova="${s.id}">Apri la lista di oggi</button></div>`;
   }).join('');
-  $('#sw').onclick = e => { const b = e.target.closest('[data-s]'); if(b) openSede(b.dataset.s, data); };
+  $('#sw').onclick = e => { const o = e.target.closest('[data-open]'); if(o){ const [s,d,r] = o.dataset.open.split('|'); openConta(s,d,r); return; }
+    const n = e.target.closest('[data-nuova]'); if(n) openSede(n.dataset.nuova, oggi); };
 }
 
 function renderContaScelta(){
@@ -970,7 +993,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v28';
+  const KEY = 'giacenze-demo-v29';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
