@@ -618,7 +618,7 @@ async function chiudiConta(){
 
 function testoOrdine(c,f,list){
   const sez = [...groupBy(list, r => r.sezione || 'Altro')];
-  return `*ORDINE ${f.toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
+  return `*ORDINE ${f.toUpperCase()} – ${repNome(c.reparto).toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
 }
 
 /* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
@@ -628,7 +628,7 @@ function fornitoriDaInviare(c){
   if(!conStati(c)) return [];
   const inv = c.inviatiWa || {}, inol = c.inoltrati || {};
   const forn = [...new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'))];
-  return forn.filter(f => !inv[f]);
+  return forn.filter(f => !inv[f] && !inol[f]);
 }
 async function segnaInviatoWa(f){
   const c = S.conta; if(!c || c.stato !== 'chiuso' || S.admin) return;
@@ -656,7 +656,7 @@ function renderChiuso(){
       ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Il locale non ti ha ancora inviato' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
       : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? 'Il locale ti ha inviato tutti gli ordini.' : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
-      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
+      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
     <div class="ord-acts">${S.admin
@@ -673,7 +673,8 @@ function renderChiuso(){
       try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} renderChiuso(); return; }
     const sh = e.target.closest('[data-share]');
     if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
-      const segnaInoltro = async () => {};
+      const segnaInoltro = async () => { c.inoltrati = {...(c.inoltrati||{}), [f]: new Date().toISOString()};
+        try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} if(S.conta === c) renderChiuso(); };
       if(navigator.share){ try{ await navigator.share({text: t}); await segnaInoltro(); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
       await segnaInoltro(); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
     const b = e.target.closest('[data-copy]'); if(!b) return;
