@@ -383,7 +383,7 @@ async function route(){
   const oggi = ymd(oggiLista()); let data = oggi;
   try{ const qs = await db.collection('conteggi').where('sede','==',S.sede).get();
     const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-3)).sort((a,b)=>b.data.localeCompare(a.data));
-    if(aperte.length) data = aperte[0].data; }catch(e){}
+    S.vecchiaAperta = aperte.length ? aperte[0].data : null; }catch(e){ S.vecchiaAperta = null; }
   openSede(S.sede, data);
 }
 async function go(tab){
@@ -405,9 +405,12 @@ async function openSede(sede,data){
   if(S.view!=='sede') return;
   view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
     <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
+    ${!S.admin && S.vecchiaAperta && S.vecchiaAperta !== data ? `<p class="note">C'è ancora una lista aperta di ${dayName(S.vecchiaAperta)} ${fmt(S.vecchiaAperta)}. <button class="link" data-apri="${S.vecchiaAperta}">Aprila</button></p>` : ''}
+    ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
     <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data);
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
-  main().onclick = e => { const b = e.target.closest('[data-r]'); if(b) openConta(sede, data, b.dataset.r); };
+  main().onclick = e => { const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
+    const b = e.target.closest('[data-r]'); if(b) openConta(sede, data, b.dataset.r); };
 }
 function statoConta(sn, sede, rep, data){
   const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
