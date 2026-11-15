@@ -213,7 +213,7 @@ const SEED = [
  ['Amari e distillati','Doreca','PZ','Amaro del Capo|Aperol|Averna|Baileys|Borsci S.Marzano|Branca Menta|Cynar|Disaronno|Fernet Branca|Grand Marnier|Grappa barricata|Grappa morbida|Grappa secca|Jack Daniel\'s|Jagermeister|Jefferson|Limoncione|Lucano|Montenegro|Nocino|Passito|Rhum Pampero|Sambuca|Tequila|Unicum|Vecchia Romagna|Zacapa|Whisky|Vodka'],
  ['Dolci Sal De Riso','Sal De Riso','CT','Cassata:CT:1,1,1,0:3,3,3,0|Cheese cake:CT:1,1,1,0:3,3,3,0|Chicco:CT:1,1,1,0:3,3,3,0|Delizia:CT:1,1,1,0:3,3,3,0|Etna:CT:1,1,1,0:3,3,3,0|Oro Puro:CT:1,1,1,0:3,3,3,0|Panarea:CT:1,1,1,0:3,3,3,0|Ricotta e pere:CT:1,1,1,0:3,3,3,0'],
  ['Per i dolci','Metro','PZ','Panna spray|Cacao|Zucchero a velo|Zucchero Dietor|Topping cioccolato|Topping frutti di bosco|Tovaglioli piccoli neri'],
- ['Liquori','Sanfelici','Bottiglia','Liquore pistacchio:Bottiglia:2,2,2,0:3,3,3,0|Limoncello:Bottiglia:2,2,2,0:3,3,3,0|Liquore crema babà:Bottiglia:2,2,2,0:3,3,3,0|Liquore liquirizia:Bottiglia:2,2,2,0:3,3,3,0|Viagroncello:Bottiglia:2,2,2,0:3,3,3,0|Meloncino:Bottiglia:2,2,2,0:3,3,3,0'],
+ ['Liquori','Sammarco','Bottiglia','Liquore pistacchio:Bottiglia:2,2,2,0:3,3,3,0|Limoncello:Bottiglia:2,2,2,0:3,3,3,0|Liquore crema babà:Bottiglia:2,2,2,0:3,3,3,0|Liquore liquirizia:Bottiglia:2,2,2,0:3,3,3,0|Viagroncello:Bottiglia:2,2,2,0:3,3,3,0|Meloncino:Bottiglia:2,2,2,0:3,3,3,0'],
  ['Caffetteria Bonetti','Bonetti','PZ','Caffè|Deca|Orzo|Zucchero|Zucchero di canna'],
  ['Bibite','Doreca','CT','Acqua gas 0,5|Acqua nat 0,5|Acqua personale gas|Acqua personale/bar nat|Birra 66 Moretti/Peroni|Coca 1,5 lt plastica|Coca lattina|Coca Zero lattina|Coca senza caffeina lattina|Coca vetro 33|Coca Zero vetro 33|Fanta vetro 33|Sprite vetro 33|Estathe lattina limone|Estathe lattina pesca'],
  ['Verdure','Etna Fruit','PZ','Aglio|Ananas|Arance/pompelmi|Basilico|Cipolla bianca:KG|Cipolla rossa:KG|Fiori di zucca|Fragole|Funghi freschi:KG|Insalata lattuga|Limoni Amalfi:KG|Melanzane:Cassa|Patate rosse:Cassa|Patate fresche:KG|Peperoni:Cassa|Pomodorini:KG|Pomodoro cuore di bue:KG|Prezzemolo|Radicchio|Rucola|Scarole:Cassa|Zucchine:KG'],
@@ -271,7 +271,7 @@ function groupBy(arr,key){ const m = new Map(); arr.forEach(x => { const k = typ
 const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 /* Giorni delle liste: domenica (0) e giovedì (4). Sanfelici solo la domenica (ordine poi girato martedì/mercoledì). */
 const GIORNI_LISTA = [0,4];
-const GIORNI_FORNITORE = {'Sanfelici':[0]};
+const GIORNI_FORNITORE = {'Sanfelici':[0], 'Sammarco':[0]};
 /* Giacenza alcolici: se attiva dal titolare, queste sezioni si contano (min/max) invece dell'ordine diretto */
 const SEZ_ALCOLICI = ['Vini bianchi','Vini rossi','Bollicine','Amari e distillati'];
 /* Sezioni in uso per sede (se una sede non è elencata le usa tutte) */
@@ -367,7 +367,7 @@ async function onAuth(u){
   ascolta();
 }
 
-const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['magazzino','Magazzino Sanfelici'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
+const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['magazzino','Magazzino'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
 function shell(){
   app.innerHTML = `<header class="top"><div class="brand">Lista ordini<span>Gruppo Teperino</span></div>
     <div class="who"><span>${S.admin ? 'Gestione' : esc(sedeNome(S.sede))}</span><button class="link" id="logout">Esci</button></div></header>
@@ -410,7 +410,7 @@ async function openSede(sede,data){
     ${blocchi.length ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${blocchi.map(([r,d]) => `${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da chiudere e inviare. Non puoi fare la lista nuova finché non la chiudi (se non c'è niente da ordinare, chiudila vuota).`).join('<br>')}</p>` : ''}
     ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
     <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, snaps[1-i]);
-      const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Lista di ${dayName(bd)} ${fmt(bd)} ancora da chiudere e inviare`; }
+      const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Tocca per aprire la lista di ${dayName(bd)} e chiuderla`; }
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
   main().onclick = e => { const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
     const b = e.target.closest('[data-r]'); if(!b) return; const d = blocco(b.dataset.r);
@@ -419,12 +419,12 @@ async function openSede(sede,data){
 }
 function statoConta(sn, sede, rep, data, altroSn){
   const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
-  if(!sn.exists) return {stato:'Da fare', cls:'todo', info:`${gArts.length} articoli da contare`};
+  if(!sn.exists) return {stato:'Da fare', cls:'todo', info: gArts.length ? `${gArts.length} articoli da contare` : 'Solo ordini, niente da contare'};
   const c = sn.data();
   if(c.stato==='chiuso'){ const a = altroSn && altroSn.exists ? altroSn.data() : null, m = fornitoriDaInviare(c, a), w = fornitoriInAttesa(c, a);
     const an = repNome(REPARTI.find(r => r.id !== rep).id);
     return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}${w.length ? ` · ${w.map(esc).join(', ')} lo manda ${an}` : ''}`}; }
-  return {stato:'In corso', cls:'wip', info:`${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati`};
+  return {stato:'In corso', cls:'wip', info: gArts.length ? `${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati` : 'Ordini in compilazione'};
 }
 
 /* Quantità abituali: media degli ordini (quando ordinato) nelle ultime 8 liste chiuse dello stesso reparto */
@@ -601,12 +601,12 @@ async function chiudiConta(){
   const q = $('#q'); if(q.value){ q.value=''; q.dispatchEvent(new Event('input')); }
   const miss = [...document.querySelectorAll('#lista .row:not([data-dir])')].filter(r => typeof c.righe[r.dataset.id] !== 'number');
   /* Giacenza Sanfelici obbligatoria: l'ordine si calcola da lì */
-  const OBBLIGATORI = ['Sanfelici'];
+  const OBBLIGATORI = ['Sanfelici','Sammarco'];
   const missObb = miss.filter(r => { const a = S.contaArts.find(x => x.id === r.dataset.id); return a && OBBLIGATORI.includes(a.fornitore); });
   if(missObb.length){
     missObb.forEach(r => r.classList.add('flash'));
     missObb[0].scrollIntoView({behavior:'smooth',block:'center'});
-    toast(`Giacenza Sanfelici obbligatoria: mancano ${missObb.length} articoli. Se un articolo è finito scrivi 0.`,'err'); return;
+    toast(`Giacenza ${[...new Set(missObb.map(r => (S.contaArts.find(x => x.id === r.dataset.id)||{}).fornitore))].join(' e ')} obbligatoria: mancano ${missObb.length} articoli. Se un articolo è finito scrivi 0.`,'err'); return;
   }
   const strani = S.contaArts.filter(a => insolito(a, c.righe[a.id]));
   if(strani.length && !await ask('Quantità insolite rispetto al solito:\n' + strani.map(a => `- ${a.nome}: ${fmtN(c.righe[a.id])} ${a.unita} (di solito ${fmtN(S.abituali[a.id])})`).join('\n') + '\n\nSono corrette?')){
@@ -751,11 +751,12 @@ function exportCSV(c){
 }
 
 /* ============ ADMIN: MAGAZZINO SANFELICI (come il foglio Excel) ============ */
+const MAG_FORN = ['Sanfelici','Sammarco'];
 async function renderMagazzino(){
   const sede = S.mgSede || SEDI[0].id, n = S.mgN || 8;
-  view('magazzino', `<div class="vhead"><h1>Magazzino Sanfelici</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
+  view('magazzino', `<div class="vhead"><h1>Magazzino Sanfelici e Sammarco</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
     <select id="mn" class="sel">${[[4,'Ultime 4'],[8,'Ultime 8'],[13,'Ultime 13'],[999,'Tutte']].map(([v,t])=>`<option value="${v}"${v===n?' selected':''}>${t}</option>`).join('')}</select><button class="btn" id="mcsv">Esporta Excel</button></div>
-    <p class="muted small">Ogni giacenza Sanfelici chiusa, con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
+    <p class="muted small">Ogni giacenza Sanfelici e Sammarco (liquori) chiusa, con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
   $('#ms').onchange = e => { S.mgSede = e.target.value; renderMagazzino(); };
   $('#mn').onchange = e => { S.mgN = +e.target.value; renderMagazzino(); };
   let docs;
@@ -764,12 +765,12 @@ async function renderMagazzino(){
   if(S.view!=='magazzino') return;
   const perData = {};
   docs.filter(d => d.stato==='chiuso' && d.dettaglio).forEach(d => d.dettaglio.forEach(r => {
-    if(r.fornitore !== 'Sanfelici' || r.diretto || typeof r.g !== 'number') return;
+    if(!(MAG_FORN.includes(r.fornitore) || r.sezione === 'Liquori') || r.diretto || typeof r.g !== 'number') return;
     (perData[d.data] = perData[d.data] || {})[r.id] = r; }));
   const date = Object.keys(perData).sort().slice(-n);
   if(!date.length){ $('#mb').innerHTML = '<p class="empty">Nessuna giacenza Sanfelici chiusa per questa pizzeria.</p>'; $('#mcsv').onclick = null; return; }
   const ids = [], nomi = {};
-  S.articoli.filter(a => a.fornitore === 'Sanfelici' && !isDir(a) && attivo(a,sede)).forEach(a => { ids.push(a.id); nomi[a.id] = a; });
+  S.articoli.filter(a => MAG_FORN.includes(a.fornitore) && !isDir(a) && attivo(a,sede)).forEach(a => { ids.push(a.id); nomi[a.id] = a; });
   date.forEach(d => Object.values(perData[d]).forEach(r => { if(!nomi[r.id]){ ids.push(r.id); nomi[r.id] = {nome:r.nome, unita:r.unita, sezione:r.sezione}; } }));
   const cella = v => v > 0 ? fmtN(v) : '–';
   const sticky = 'position:sticky;left:0;background:var(--card,#fff);z-index:1';
@@ -1046,11 +1047,14 @@ async function allineaCatalogo(){
   const tolti = S.articoli.filter(a => !stdNomi.has(key(a.nome)));
   const lotti = S.articoli.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
-  if(!nuovi.length && !tolti.length && !lotti.length && !sezSede.length){ toast('Il catalogo è già allineato','ok'); return; }
+  const fornSeed = {}; std.forEach(x => { if(x.forn === 'Sammarco') fornSeed[key(x.nome)] = x.forn; });
+  const cambiaForn = S.articoli.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
+  if(!nuovi.length && !tolti.length && !lotti.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   if(nuovi.length) righe.push('Da aggiungere: ' + nuovi.map(x=>x.nome).join(', '));
   if(tolti.length) righe.push('Da eliminare: ' + tolti.map(a=>a.nome).join(', '));
   if(lotti.length) righe.push('Ordine fisso: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
+  if(cambiaForn.length) righe.push('Passano a Sammarco: ' + cambiaForn.map(a=>a.nome).join(', '));
   if(sezSede.length) righe.push('Sezioni non usate disattivate per: ' + SEDI.filter(s=>SEZ_SOLO[s.id]).map(s=>s.nome).join(', '));
   if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
   const b = db.batch();
@@ -1059,6 +1063,7 @@ async function allineaCatalogo(){
     b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
   tolti.forEach(a => b.delete(db.collection('articoli').doc(a.id)));
   lotti.forEach(a => b.update(db.collection('articoli').doc(a.id), {lotto: LOTTI_SEED[a.nome]}));
+  cambiaForn.forEach(a => b.update(db.collection('articoli').doc(a.id), {fornitore: fornSeed[key(a.nome)]}));
   sezSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!sezInSede(a.sezione,s.id)) u[`sedi.${s.id}.on`] = false; }); if(!tolti.includes(a)) b.update(db.collection('articoli').doc(a.id), u); });
   await b.commit(); toast('Catalogo aggiornato','ok');
 }
