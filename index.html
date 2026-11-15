@@ -367,7 +367,7 @@ async function onAuth(u){
   ascolta();
 }
 
-const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
+const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['magazzino','Magazzino Sanfelici'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
 function shell(){
   app.innerHTML = `<header class="top"><div class="brand">Lista ordini<span>Gruppo Teperino</span></div>
     <div class="who"><span>${S.admin ? 'Gestione' : esc(sedeNome(S.sede))}</span><button class="link" id="logout">Esci</button></div></header>
@@ -393,7 +393,7 @@ async function go(tab){
   }
   S.tab = tab;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
-  ({settimana:renderSettimana, ordini:renderOrdini, conta:renderContaScelta, storico:renderStorico, analisi:renderAnalisi, catalogo:()=>renderCatalogo(), utenti:renderUtenti})[tab]();
+  ({settimana:renderSettimana, ordini:renderOrdini, magazzino:renderMagazzino, conta:renderContaScelta, storico:renderStorico, analisi:renderAnalisi, catalogo:()=>renderCatalogo(), utenti:renderUtenti})[tab]();
 }
 
 /* ============ CONTEGGIO ============ */
@@ -748,6 +748,45 @@ function exportCSV(c){
   const csv = '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(';')).join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   a.download = `giacenza_${c.sede}_${c.reparto}_${c.data}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ============ ADMIN: MAGAZZINO SANFELICI (come il foglio Excel) ============ */
+async function renderMagazzino(){
+  const sede = S.mgSede || SEDI[0].id, n = S.mgN || 8;
+  view('magazzino', `<div class="vhead"><h1>Magazzino Sanfelici</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
+    <select id="mn" class="sel">${[[4,'Ultime 4'],[8,'Ultime 8'],[13,'Ultime 13'],[999,'Tutte']].map(([v,t])=>`<option value="${v}"${v===n?' selected':''}>${t}</option>`).join('')}</select><button class="btn" id="mcsv">Esporta Excel</button></div>
+    <p class="muted small">Ogni giacenza Sanfelici chiusa, con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
+  $('#ms').onchange = e => { S.mgSede = e.target.value; renderMagazzino(); };
+  $('#mn').onchange = e => { S.mgN = +e.target.value; renderMagazzino(); };
+  let docs;
+  try{ const qs = await db.collection('conteggi').where('sede','==',sede).get(); docs = qs.docs.map(d=>d.data()); }
+  catch(e){ $('#mb').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
+  if(S.view!=='magazzino') return;
+  const perData = {};
+  docs.filter(d => d.stato==='chiuso' && d.dettaglio).forEach(d => d.dettaglio.forEach(r => {
+    if(r.fornitore !== 'Sanfelici' || r.diretto || typeof r.g !== 'number') return;
+    (perData[d.data] = perData[d.data] || {})[r.id] = r; }));
+  const date = Object.keys(perData).sort().slice(-n);
+  if(!date.length){ $('#mb').innerHTML = '<p class="empty">Nessuna giacenza Sanfelici chiusa per questa pizzeria.</p>'; $('#mcsv').onclick = null; return; }
+  const ids = [], nomi = {};
+  S.articoli.filter(a => a.fornitore === 'Sanfelici' && !isDir(a) && attivo(a,sede)).forEach(a => { ids.push(a.id); nomi[a.id] = a; });
+  date.forEach(d => Object.values(perData[d]).forEach(r => { if(!nomi[r.id]){ ids.push(r.id); nomi[r.id] = {nome:r.nome, unita:r.unita, sezione:r.sezione}; } }));
+  const cella = v => v > 0 ? fmtN(v) : '–';
+  const sticky = 'position:sticky;left:0;background:var(--card,#fff);z-index:1';
+  $('#mb').innerHTML = `<div class="tblw"><table class="tbl" style="white-space:nowrap">
+    <thead><tr><th style="${sticky}">Articolo</th>${date.map(d=>`<th class="n">${fmt(d).slice(0,5)}<br><small>${dayName(d).slice(0,3)}</small></th><th class="n" style="color:var(--tom)">Da ord.</th>`).join('')}<th class="n">Min</th><th class="n">Max</th><th>Unità</th></tr></thead>
+    <tbody>${ids.map(id => { const a = nomi[id], ar = S.articoli.find(x=>x.id===id);
+      return `<tr><td style="${sticky}">${esc(a.nome)}</td>${date.map(d => { const r = perData[d][id];
+        return r ? `<td class="n">${fmtN(r.g)}</td><td class="n" style="color:var(--tom);font-weight:700">${cella(r.ordine)}</td>` : '<td class="n muted">·</td><td class="n muted">·</td>'; }).join('')}
+        <td class="n">${ar && scortaDi(ar,sede) ? fmtN(scortaDi(ar,sede)) : '–'}</td><td class="n">${ar && maxDi(ar,sede) ? fmtN(maxDi(ar,sede)) : '–'}</td><td>${esc(a.unita||'')}</td></tr>`; }).join('')}</tbody></table></div>`;
+  $('#mcsv').onclick = () => {
+    const rows = [['Articolo', ...date.flatMap(d => [fmt(d), 'Da ordinare']), 'Minimo', 'Massimo', 'Unità']]
+      .concat(ids.map(id => { const a = nomi[id], ar = S.articoli.find(x=>x.id===id);
+        return [a.nome, ...date.flatMap(d => { const r = perData[d][id]; return r ? [fmtN(r.g), r.ordine > 0 ? fmtN(r.ordine) : ''] : ['','']; }),
+          ar && scortaDi(ar,sede) ? fmtN(scortaDi(ar,sede)) : '', ar && maxDi(ar,sede) ? fmtN(maxDi(ar,sede)) : '', a.unita||'']; }));
+    const csv = '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(';')).join('\n');
+    const x = document.createElement('a'); x.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    x.download = `magazzino_sanfelici_${sede}.csv`; document.body.appendChild(x); x.click(); x.remove(); };
 }
 
 /* ============ ADMIN: SETTIMANA ============ */
