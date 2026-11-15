@@ -382,8 +382,8 @@ async function route(){
   if(S.admin){ go(S.tab); return; }
   const oggi = ymd(oggiLista()); let data = oggi;
   try{ const qs = await db.collection('conteggi').where('sede','==',S.sede).get();
-    const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-3)).sort((a,b)=>b.data.localeCompare(a.data));
-    S.vecchiaAperta = aperte.length ? aperte[0].data : null; }catch(e){ S.vecchiaAperta = null; }
+    const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-7)).sort((a,b)=>b.data.localeCompare(a.data));
+    S.bloccoRep = {}; aperte.forEach(d => { if(!S.bloccoRep[d.reparto]) S.bloccoRep[d.reparto] = d.data; }); }catch(e){ S.bloccoRep = {}; }
   openSede(S.sede, data);
 }
 async function go(tab){
@@ -403,21 +403,27 @@ async function openSede(sede,data){
   try{ snaps = await Promise.all(REPARTI.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere le giacenze (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   if(S.view!=='sede') return;
+  const blocco = r => !S.admin && data === ymd(oggiLista()) && (S.bloccoRep||{})[r] && !(snaps[REPARTI.findIndex(x=>x.id===r)]||{}).exists ? S.bloccoRep[r] : null;
+  const blocchi = REPARTI.map(r => [r.id, blocco(r.id)]).filter(x => x[1]);
   view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
     <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
-    ${!S.admin && S.vecchiaAperta && S.vecchiaAperta !== data ? `<p class="note">C'è ancora una lista aperta di ${dayName(S.vecchiaAperta)} ${fmt(S.vecchiaAperta)}. <button class="link" data-apri="${S.vecchiaAperta}">Aprila</button></p>` : ''}
+    ${blocchi.length ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${blocchi.map(([r,d]) => `${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da chiudere e inviare. Non puoi fare la lista nuova finché non la chiudi (se non c'è niente da ordinare, chiudila vuota).`).join('<br>')}</p>` : ''}
     ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
-    <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data);
+    <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, snaps[1-i]);
+      const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Lista di ${dayName(bd)} ${fmt(bd)} ancora da chiudere e inviare`; }
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
   main().onclick = e => { const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
-    const b = e.target.closest('[data-r]'); if(b) openConta(sede, data, b.dataset.r); };
+    const b = e.target.closest('[data-r]'); if(!b) return; const d = blocco(b.dataset.r);
+    if(d){ toast(`Prima chiudi e invia la lista di ${dayName(d)} ${fmt(d)}`,'err'); openConta(sede, d, b.dataset.r); return; }
+    openConta(sede, data, b.dataset.r); };
 }
-function statoConta(sn, sede, rep, data){
+function statoConta(sn, sede, rep, data, altroSn){
   const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
   if(!sn.exists) return {stato:'Da fare', cls:'todo', info:`${gArts.length} articoli da contare`};
   const c = sn.data();
-  if(c.stato==='chiuso'){ const m = fornitoriDaInviare(c);
-    return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}`}; }
+  if(c.stato==='chiuso'){ const a = altroSn && altroSn.exists ? altroSn.data() : null, m = fornitoriDaInviare(c, a), w = fornitoriInAttesa(c, a);
+    const an = repNome(REPARTI.find(r => r.id !== rep).id);
+    return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}${w.length ? ` · ${w.map(esc).join(', ')} lo manda ${an}` : ''}`}; }
   return {stato:'In corso', cls:'wip', info:`${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati`};
 }
 
@@ -450,7 +456,9 @@ async function openConta(sede,data,rep){
   try{ snap = await db.collection('conteggi').doc(id).get(); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
-  S.conta.righe = S.conta.righe || {};
+  S.conta.righe = S.conta.righe || {}; S.altro = null;
+  if(S.conta.stato === 'chiuso'){ const ar = REPARTI.find(r => r.id !== rep);
+    try{ const sa = await db.collection('conteggi').doc(`${sede}_${data}_${ar.id}`).get(); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){} }
   if(S.conta.stato !== 'chiuso'){ await caricaAbituali(sede, rep, data); await caricaProgOrdinati(sede, data, id); }
   S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
 }
@@ -606,8 +614,13 @@ async function chiudiConta(){
   if(!await ask((miss.length ? `${miss.length} articoli non compilati: per questi non verrà fatto l'ordine.\n\n` : '') + 'Chiudere la lista e preparare gli ordini?\nDopo la chiusura la lista non si potrà più modificare.')) return;
   clearTimeout(saveT); saveT=null;
   const inv = c.inviati || {};
+  /* minimi e massimi sempre aggiornati: rilegge il catalogo dal server prima di calcolare l'ordine */
+  try{ const qs = await Promise.race([db.collection('articoli').get(DEMO ? undefined : {source:'server'}), new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),5000))]);
+    const fresh = new Map(qs.docs.map(d => [d.id, {id:d.id, ...d.data()}]));
+    S.contaArts = S.contaArts.map(a => fresh.get(a.id) || a); }catch(e){}
   const dettaglio = righeOrdine(c, S.contaArts).map(r => inv[r.sezione] ? {...r, inviato:true} : r);
   const doc = {sede:c.sede, data:c.data, reparto:c.reparto, stato:'chiuso', operatore:c.operatore.trim(), righe:c.righe, inviati:inv, creato:c.creato||new Date(), chiuso:new Date(), dettaglio};
+  if(S.bloccoRep && S.bloccoRep[c.reparto] === c.data) delete S.bloccoRep[c.reparto];
   const btn = $('#chiudi'); btn.disabled=true; btn.textContent='Chiusura…';
   let offline = false;
   try{ /* JSON toglie i campi vuoti (undefined) che Firestore rifiuta */
@@ -615,7 +628,9 @@ async function chiudiConta(){
     const write = db.collection('conteggi').doc(c.id).set(pulito);
     await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
   catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent='Chiudi lista e invia ordini'; return; }
-  S.conta = {id:c.id, ...doc}; renderChiuso();
+  S.conta = {id:c.id, ...doc}; S.altro = null;
+  try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
+  renderChiuso();
   toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : 'Lista chiusa: ora invia gli ordini','ok');
 }
 
@@ -624,19 +639,46 @@ function testoOrdine(c,f,list){
   return `*ORDINE ${f.toUpperCase()} – ${repNome(c.reparto).toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
 }
 
+/* Metro: un solo messaggio per pizzeria, unendo Pizzeria e Bar e sala dello stesso giorno.
+   Lo manda il reparto che chiude per ultimo; l'altro resta "in attesa" (con "Invia lo stesso" se l'altro reparto oggi non fa la lista). */
+const FORN_UNICI = ['Metro'];
+const altroDoc = c => { const a = S.altro; return a && a.sede === c.sede && a.data === c.data ? a : null; };
+const inviatoF = (d,f) => (d.inviatiWa||{})[f] || (d.inoltrati||{})[f];
+const righeF = (d,f) => (d.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato && (r.fornitore||'Senza fornitore') === f);
+function inAttesa(c,f,a){
+  if(!FORN_UNICI.includes(f) || !conStati(c) || inviatoF(c,f)) return false;
+  if(!a || a.stato !== 'chiuso') return true;
+  if(inviatoF(a,f)) return false;
+  return (toDate(a.chiuso)||0) > (toDate(c.chiuso)||0);
+}
+function righeAltro(c,f,a = altroDoc(c)){
+  if(!FORN_UNICI.includes(f) || !conStati(c) || !a || a.stato !== 'chiuso') return [];
+  const ia = inviatoF(a,f), ic = inviatoF(c,f);
+  if(ia && ia !== ic) return [];
+  if(!S.admin && inAttesa(c,f,a)) return [];
+  return righeF(a,f);
+}
+function testoFornitore(c,f,list){ const al = righeAltro(c,f);
+  if(!S.admin && !al.length) return testoOrdine(c,f,list);
+  const sez = [...groupBy([...list, ...al], r => r.sezione || 'Altro')];
+  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n'); }
+
 /* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
 const STATI_DAL = '2026-11-09';
 const conStati = c => (c.data||'') >= STATI_DAL;
-function fornitoriDaInviare(c){
+function fornitoriDaInviare(c, a = altroDoc(c)){
   if(!conStati(c)) return [];
-  const inv = c.inviatiWa || {}, inol = c.inoltrati || {};
-  const forn = [...new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'))];
-  return forn.filter(f => !inv[f] && !inol[f]);
+  const forn = new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'));
+  FORN_UNICI.forEach(f => { if(a && a.stato === 'chiuso' && !inviatoF(a,f) && righeF(a,f).length && !inAttesa(c,f,a)) forn.add(f); });
+  return [...forn].filter(f => !inviatoF(c,f) && !inAttesa(c,f,a));
 }
+const fornitoriInAttesa = (c, a = altroDoc(c)) => FORN_UNICI.filter(f => righeF(c,f).length && inAttesa(c,f,a));
 async function segnaInviatoWa(f){
   const c = S.conta; if(!c || c.stato !== 'chiuso' || S.admin) return;
-  c.inviatiWa = {...(c.inviatiWa||{}), [f]: new Date().toISOString()};
+  const ora = new Date().toISOString(), conAltro = righeAltro(c,f).length > 0;
+  c.inviatiWa = {...(c.inviatiWa||{}), [f]: ora};
   try{ await db.collection('conteggi').doc(c.id).update({inviatiWa: c.inviatiWa}); }catch(e){}
+  if(conAltro){ S.altro.inviatiWa = {...(S.altro.inviatiWa||{}), [f]: ora}; try{ await db.collection('conteggi').doc(S.altro.id).update({inviatiWa: S.altro.inviatiWa}); }catch(e){} }
   if(S.view === 'conta') setTimeout(() => { if(S.conta === c) renderChiuso(); }, 800);
 }
 const oraBreve = iso => { const d = new Date(iso); return d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); };
@@ -648,7 +690,9 @@ function renderChiuso(){
   const cd = toDate(c.chiuso);
   /* un solo ordine per fornitore; "già inviato" solo se tutte le sue righe erano state inviate in anticipo */
   const gm = new Map(); ord.forEach(r => { const k = r.fornitore||'Senza fornitore'; if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
-  const groups = [...gm].map(([k,l]) => [k, l, l.every(r => r.inviato)]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
+  FORN_UNICI.forEach(f => { if(!gm.has(f) && righeAltro(c,f).length) gm.set(f, []); });
+  const groups = [...gm].map(([k,l]) => [k, l, l.length > 0 && l.every(r => r.inviato)]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
+  const an = repNome(REPARTI.find(r => r.id !== c.reparto).id);
   view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
   <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
@@ -658,13 +702,17 @@ function renderChiuso(){
   ${!conStati(c) ? '' : (() => { const m = fornitoriDaInviare(c); return m.length
       ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Il locale non ti ha ancora inviato' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
       : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? 'Il locale ti ha inviato tutti gli ordini.' : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
-  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw; return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
-      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
-      : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
+  ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw, att = !fatto && inAttesa(c,f,altroDoc(c)); return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
+      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
+      : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:att?`<span class="pill wip">Lo manda ${esc(an)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
+    ${(() => { const al = righeAltro(c,f);
+        if(al.length) return `<p class="muted" style="margin:.4rem 0">${list.length ? '+ ' : ''}${al.length} articoli ${esc(f)} di ${esc(an)}: ${S.admin ? 'li inoltri' : 'partono'} insieme in un solo messaggio.</p>`;
+        if(!fatto && inAttesa(c,f,altroDoc(c))) return `<p class="muted" style="margin:.4rem 0">${esc(f)} parte in un solo messaggio per tutta la pizzeria: lo manda ${esc(an)} quando chiude la sua lista.${S.admin ? '' : ` Se oggi ${esc(an)} non fa la lista, premi <b>Invia lo stesso</b>.`}</p>`;
+        return ''; })()}
     <div class="ord-acts">${S.admin
-      ? `<button class="btn primary" data-share="${i}">Inoltra al fornitore</button>`
-      : `<a class="btn${fatto?'':' primary'}" target="_blank" rel="noopener" data-sent data-forn="${esc(f)}" href="${waUrl(testoOrdine(c,f,list))}">${fatto?'Rimanda':'Invia ordine '+esc(f)+' a '+NOME_ORDINI}</a>`}<button class="btn" data-copy="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
+      ? `<button class="btn primary" data-share="${i}">${righeAltro(c,f).length ? 'Inoltra al fornitore (tutta la pizzeria)' : 'Inoltra al fornitore'}</button>`
+      : `<a class="btn${fatto||att?'':' primary'}" target="_blank" rel="noopener" data-sent data-forn="${esc(f)}" href="${waUrl(testoFornitore(c,f,list))}">${fatto?'Rimanda':att?'Invia lo stesso':'Invia ordine '+esc(f)+' a '+NOME_ORDINI}</a>`}<button class="btn" data-copy="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
     : `<p class="empty">Nessun articolo sotto scorta: non c'è niente da ordinare.</p>`}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
@@ -675,18 +723,20 @@ function renderChiuso(){
       (tt ? groups : [groups[+sg.dataset.segna]]).forEach(([f]) => { if(!c.inoltrati[f]) c.inoltrati[f] = ora; });
       try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} renderChiuso(); return; }
     const sh = e.target.closest('[data-share]');
-    if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoOrdine(c,f,list);
-      const segnaInoltro = async () => { c.inoltrati = {...(c.inoltrati||{}), [f]: new Date().toISOString()};
-        try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} if(S.conta === c) renderChiuso(); };
+    if(sh){ const [f,list] = groups[+sh.dataset.share]; const t = testoFornitore(c,f,list); const conAltro = righeAltro(c,f).length > 0;
+      const segnaInoltro = async () => { const ora = new Date().toISOString(); c.inoltrati = {...(c.inoltrati||{}), [f]: ora};
+        try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){}
+        if(conAltro){ S.altro.inoltrati = {...(S.altro.inoltrati||{}), [f]: ora}; try{ await db.collection('conteggi').doc(S.altro.id).update({inoltrati: S.altro.inoltrati}); }catch(err){} }
+        if(S.conta === c) renderChiuso(); };
       if(navigator.share){ try{ await navigator.share({text: t}); await segnaInoltro(); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
       await segnaInoltro(); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); return; }
     const b = e.target.closest('[data-copy]'); if(!b) return;
     const [f,list] = groups[+b.dataset.copy];
-    navigator.clipboard.writeText(testoOrdine(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
+    navigator.clipboard.writeText(testoFornitore(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
   if(S.admin){
     $('#csv').onclick = () => exportCSV(c);
     $('#riapri').onclick = async () => { if(!await ask('Riaprire la giacenza? Il tablet potrà modificarla di nuovo.')) return;
-      await db.collection('conteggi').doc(c.id).update({stato:'bozza', dettaglio:FV.delete(), chiuso:FV.delete()}); openConta(c.sede,c.data,c.reparto); };
+      await db.collection('conteggi').doc(c.id).update({stato:'bozza', dettaglio:FV.delete(), chiuso:FV.delete(), inviatiWa:FV.delete(), inoltrati:FV.delete()}); openConta(c.sede,c.data,c.reparto); };
     $('#elim').onclick = async () => { if(!await ask('Eliminare definitivamente questa giacenza?')) return;
       await db.collection('conteggi').doc(c.id).delete(); toast('Giacenza eliminata','ok'); openSede(c.sede,c.data); };
   }
@@ -716,7 +766,7 @@ async function renderSettimana(){
   if(S.view!=='settimana') return;
   $('#sw').innerHTML = SEDI.map(s => {
     const mie = docs.filter(d => d.sede === s.id).sort((a,b)=>b.data.localeCompare(a.data) || (a.reparto||'').localeCompare(b.reparto||''));
-    const righe = mie.map(c => { const st = statoConta({exists:true, data:()=>c}, s.id, c.reparto, c.data);
+    const righe = mie.map(c => { const o = mie.find(d => d.data === c.data && d.reparto !== c.reparto); const st = statoConta({exists:true, data:()=>c}, s.id, c.reparto, c.data, o ? {exists:true, data:()=>o} : null);
       return {cls:st.cls, html:`<span class="sc-info" data-open="${s.id}|${c.data}|${c.reparto}" style="cursor:pointer"><span class="pill ${st.cls}">${st.stato}</span> ${dayName(c.data).slice(0,3)} ${fmt(c.data).slice(0,5)}, ${repNome(c.reparto)}: ${st.info}</span>`}; });
     const cls = !righe.length ? 'todo' : righe.every(r=>r.cls==='ok') ? 'ok' : 'wip';
     return `<div class="sede-card ${cls}"><span class="sc-name">${esc(s.nome)}</span>${righe.map(r=>r.html).join('') || '<span class="sc-info">Nessuna lista negli ultimi 7 giorni</span>'}</div>`;
@@ -859,12 +909,12 @@ function renderCatalogo(keep){
   const groups = [...groupBy(S.articoli,'sezione')];
   const forn = [...groupBy(S.articoli, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
   const np = Object.keys(S.catPending).length;
-  view('catalogo', `<div class="vhead"><h1>Catalogo e scorte</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button><button class="btn" id="allinea">Aggiorna catalogo</button></div>
+  view('catalogo', `<div class="vhead"><h1>Scorte di ${esc(sedeNome(sede))}</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button><button class="btn" id="allinea">Aggiorna catalogo</button></div>
     <div class="note warn"><label class="chk"><input type="checkbox" id="galc"${(S.impostazioni||{}).giacenzaAlcolici?' checked':''}> <b>Giacenza su vini, bollicine, amari e distillati</b></label>
     <div class="small" style="margin-top:.3rem">Spenta: i ragazzi scrivono solo cosa ordinare. Accesa: contano le bottiglie e l'ordine lo calcola l'app con min e max (all'accensione, dove mancano, vengono messi min 1 e max 2).</div></div>
     <p class="muted small"><b>Min</b>: sotto questa giacenza si ordina. <b>Max</b>: la quantità da raggiungere con l'ordine (ordine = max − giacenza). Esempio Farina Lucia min 10, max 45: con 7 sacchi ordina 38, con 12 non ordina. Senza max l'ordine riporta solo al minimo; senza min e max l'articolo viene contato ma non ordinato. Tocca il nome per modificarlo.</p>
     <details class="det"><summary>Fornitori (${forn.length})</summary><ul class="forn">${forn.map(([f,l])=>`<li><span>${esc(f||'Senza fornitore')}</span><small class="muted">${l.length} articoli</small><button class="link" data-ren="${esc(f)}">Rinomina</button></li>`).join('')}</ul></details>
-    <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)}<span class="sez-n"><label class="chk" style="font-size:.85rem"><input type="checkbox" data-sezon="${esc(s)}"${list.some(a => { const p = S.catPending[a.id]; return p && p.on !== undefined ? p.on : attivo(a,sede); })?' checked':''}> In uso</label> · ${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
+    <div id="cat">${groups.map(([s,list])=>`<section class="sez"><h2>${esc(s)} <small class="muted" style="font-weight:400">· ${esc(sedeNome(sede))}</small><span class="sez-n"><label class="chk" style="font-size:.85rem"><input type="checkbox" data-sezon="${esc(s)}"${list.some(a => { const p = S.catPending[a.id]; return p && p.on !== undefined ? p.on : attivo(a,sede); })?' checked':''}> In uso</label> · ${[...new Set(list.map(a=>repNome(repDi(a))))].join(', ')}, ${list.length}</span></h2>${list.map(a=>catRow(a,sede)).join('')}</section>`).join('')}</div>
     <div class="bar" id="cbar"${np?'':' hidden'}><div class="bar-row"><span id="cpn">${np} articoli modificati</span><button class="btn" id="cann">Annulla</button><button class="btn primary" id="csave">Salva modifiche</button></div></div>`, keep);
 
   const pend = (id,k,v) => { S.catPending[id] = {...(S.catPending[id]||{}), [k]:v}; const n = Object.keys(S.catPending).length; $('#cbar').hidden = !n; $('#cpn').textContent = `${n} articoli modificati`; };
