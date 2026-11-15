@@ -397,7 +397,12 @@ async function go(tab){
 }
 
 /* ============ CONTEGGIO ============ */
+/* pizzeria su cui sta lavorando l'amministratore: resta la stessa passando da una scheda all'altra */
+function sedeAttiva(){ if(!S.sedeAttiva){ try{ S.sedeAttiva = localStorage.getItem('lo-sede') || ''; }catch(e){} }
+  return SEDI.some(s => s.id === S.sedeAttiva) ? S.sedeAttiva : SEDI[0].id; }
+function setSedeAttiva(id){ S.sedeAttiva = id; try{ localStorage.setItem('lo-sede', id); }catch(e){} }
 async function openSede(sede,data){
+  if(S.admin) setSedeAttiva(sede);
   view('sede','<p class="loading">Caricamento…</p>');
   let snaps;
   try{ snaps = await Promise.all(REPARTI.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
@@ -454,6 +459,7 @@ async function caricaProgOrdinati(sede, data, escludiId){
 }
 
 async function openConta(sede,data,rep){
+  if(S.admin) setSedeAttiva(sede);
   view('conta','<p class="loading">Caricamento…</p>');
   const id = `${sede}_${data}_${rep}`; let snap;
   try{ snap = await db.collection('conteggi').doc(id).get(); }
@@ -759,11 +765,11 @@ function exportCSV(c){
 /* ============ ADMIN: MAGAZZINO SANFELICI (come il foglio Excel) ============ */
 const MAG_FORN = ['Sanfelici','Sammarco'];
 async function renderMagazzino(){
-  const sede = S.mgSede || SEDI[0].id, n = S.mgN || 8;
+  const sede = sedeAttiva(), n = S.mgN || 8;
   view('magazzino', `<div class="vhead"><h1>Magazzino Sanfelici e Sammarco</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
     <select id="mn" class="sel">${[[4,'Ultime 4'],[8,'Ultime 8'],[13,'Ultime 13'],[999,'Tutte']].map(([v,t])=>`<option value="${v}"${v===n?' selected':''}>${t}</option>`).join('')}</select><button class="btn" id="mcsv">Esporta Excel</button></div>
     <p class="muted small">Ogni giacenza Sanfelici e Sammarco (liquori) chiusa, con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
-  $('#ms').onchange = e => { S.mgSede = e.target.value; renderMagazzino(); };
+  $('#ms').onchange = e => { setSedeAttiva(e.target.value); renderMagazzino(); };
   $('#mn').onchange = e => { S.mgN = +e.target.value; renderMagazzino(); };
   let docs;
   try{ const qs = await db.collection('conteggi').where('sede','==',sede).get(); docs = qs.docs.map(d=>d.data()); }
@@ -846,12 +852,12 @@ async function renderStorico(){
 /* settimana di consegna: la lista di domenica e quella del giovedì successivo valgono per la settimana che inizia il lunedì dopo la domenica */
 function lunedi(ds){ const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+1); const g = (d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymd(d); }
 async function renderOrdini(){
-  const sede = S.orSede || SEDI[0].id, solo = !!S.orSolo;
+  const sede = sedeAttiva(), solo = !!S.orSolo;
   view('ordini', `<div class="vhead"><h1>Ordini</h1><select id="os" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}<option value="tutte"${sede==='tutte'?' selected':''}>Confronto tra pizzerie</option></select>
     ${sede!=='tutte'?`<label class="chk"><input type="checkbox" id="oo"${solo?' checked':''}> Solo anomalie</label>`:''}</div>
     <p class="muted small">${sede==='tutte' ? 'Media settimanale ordinata nelle ultime 4 settimane. In evidenza le pizzerie che ordinano più di 1,5 volte la media delle altre.' : 'Quantità ordinate per settimana (liste di domenica e giovedì, entrambi i reparti). "Alto": ultima settimana sopra 1,5 volte la media delle precedenti. "Nuovo": mai ordinato nelle settimane precedenti.'}</p>
     <div id="ob"><p class="loading">Caricamento…</p></div>`);
-  $('#os').onchange = e => { S.orSede = e.target.value; renderOrdini(); };
+  $('#os').onchange = e => { setSedeAttiva(e.target.value); renderOrdini(); };
   if($('#oo')) $('#oo').onchange = e => { S.orSolo = e.target.checked; renderOrdini(); };
   let q = db.collection('conteggi'); if(sede !== 'tutte') q = q.where('sede','==',sede);
   const qs = await q.get(); if(S.view !== 'ordini') return;
@@ -886,12 +892,12 @@ async function renderOrdini(){
 
 /* ============ ADMIN: CONSUMI ============ */
 async function renderAnalisi(){
-  const sede = S.anSede || SEDI[0].id, solo = !!S.anSolo;
+  const sede = sedeAttiva(), solo = !!S.anSolo;
   view('analisi', `<div class="vhead"><h1>Consumi</h1><select id="as" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
     <label class="chk"><input type="checkbox" id="ao"${solo?' checked':''}> Solo anomalie</label></div>
     <p class="muted small">Consumo della settimana = giacenza precedente + ordine calcolato − giacenza attuale. Presuppone che l'ordine sia stato consegnato per intero. Suggeriti: minimo = media delle ultime 4 settimane + 25%, massimo = media × 2,25 (copre circa due settimane).</p>
     <div id="ab"><p class="loading">Caricamento…</p></div>`);
-  $('#as').onchange = e => { S.anSede = e.target.value; renderAnalisi(); };
+  $('#as').onchange = e => { setSedeAttiva(e.target.value); renderAnalisi(); };
   $('#ao').onchange = e => { S.anSolo = e.target.checked; renderAnalisi(); };
   const qs = await db.collection('conteggi').where('sede','==',sede).get(); if(S.view!=='analisi') return;
   const perData = {};
@@ -947,7 +953,7 @@ function catRow(a,sede){
 }
 
 function renderCatalogo(keep){
-  const sede = S.catSede || SEDI[0].id;
+  const sede = sedeAttiva();
   if(!S.articoli.length){
     view('catalogo', `<h1>Catalogo e scorte</h1><p class="empty">Il catalogo è vuoto. Puoi caricarlo con gli articoli dei fogli cartacei attuali e poi modificarlo.</p><button class="btn primary big" id="seed" style="max-width:420px">Carica il catalogo dai fogli</button>`);
     $('#seed').onclick = seedCatalogo; return;
@@ -966,7 +972,7 @@ function renderCatalogo(keep){
   const pend = (id,k,v) => { S.catPending[id] = {...(S.catPending[id]||{}), [k]:v}; const n = Object.keys(S.catPending).length; $('#cbar').hidden = !n; $('#cpn').textContent = `${n} articoli modificati`; };
   $('#cs').onchange = async e => {
     if(Object.keys(S.catPending).length && !await ask('Ci sono modifiche non salvate. Cambiare pizzeria senza salvare?')){ e.target.value = sede; return; }
-    S.catPending = {}; S.catSede = e.target.value; renderCatalogo(true);
+    S.catPending = {}; setSedeAttiva(e.target.value); renderCatalogo(true);
   };
   $('#nuovo').onclick = () => editArticolo(null);
   $('#allinea').onclick = allineaCatalogo;
