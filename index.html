@@ -367,7 +367,7 @@ async function onAuth(u){
   ascolta();
 }
 
-const TABS = [['settimana','Questa settimana'],['conta','Conta'],['storico','Storico'],['ordini','Ordini'],['magazzino','Magazzino'],['analisi','Consumi'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
+const TABS = [['settimana','Questa settimana'],['ordini','Ordini'],['magazzino','Magazzino'],['storico','Storico liste'],['catalogo','Catalogo e scorte'],['utenti','Tablet']];
 function shell(){
   app.innerHTML = `<header class="top"><div class="brand">Lista ordini<span>Gruppo Teperino</span></div>
     <div class="who"><span>${S.admin ? 'Gestione' : esc(sedeNome(S.sede))}</span><button class="link" id="logout">Esci</button></div></header>
