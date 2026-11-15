@@ -405,9 +405,12 @@ async function openSede(sede,data){
   if(S.view!=='sede') return;
   const blocco = r => !S.admin && data === ymd(oggiLista()) && (S.bloccoRep||{})[r] && !(snaps[REPARTI.findIndex(x=>x.id===r)]||{}).exists ? S.bloccoRep[r] : null;
   const blocchi = REPARTI.map(r => [r.id, blocco(r.id)]).filter(x => x[1]);
+  /* lista vecchia ancora aperta ma quella di oggi già iniziata: non blocca, ma si deve poter aprire per finirla */
+  const vecchie = !S.admin && data === ymd(oggiLista()) ? REPARTI.filter(r => (S.bloccoRep||{})[r.id] && !blocco(r.id)).map(r => [r.id, S.bloccoRep[r.id]]) : [];
   view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
     <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
     ${blocchi.length ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${blocchi.map(([r,d]) => `${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da chiudere e inviare. Non puoi fare la lista nuova finché non la chiudi (se non c'è niente da ordinare, chiudila vuota).`).join('<br>')}</p>` : ''}
+    ${vecchie.map(([r,d]) => `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da finire e chiudere. <button class="btn" data-apri="${d}" style="margin-left:.5rem">Apri la lista di ${dayName(d)}</button></p>`).join('')}
     ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
     <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, snaps[1-i]);
       const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Tocca per aprire la lista di ${dayName(bd)} e chiuderla`; }
@@ -478,7 +481,7 @@ function renderConta(){
   if(!arts.length){ view('conta', `<h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="empty">Nessun articolo per questo reparto. ${S.admin?'Caricalo da Catalogo e scorte.':"Avvisa l'amministratore."}</p>`); return; }
   const groups = [...groupBy(arts,'sezione')]; S.contaGroups = groups; c.inviati = c.inviati || {};
   view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
-  <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}</p></div>
+  <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}</p>${S.admin ? '<button class="link" id="elimAperta" style="color:var(--tom)">Elimina questa lista</button>' : ''}</div>
     <label class="fld">Chi sta contando<input id="oper" value="${esc(c.operatore)}" placeholder="Nome e cognome" autocomplete="off"></label></div>
   <div class="rail"><div class="chips">${groups.map(([s],i)=>`<button class="chip" data-go="${i}" id="chip-${i}">${esc(s)}<b></b></button>`).join('')}</div>
     <input id="q" class="search" type="search" placeholder="Cerca articolo" autocomplete="off"></div>
@@ -509,6 +512,9 @@ function renderConta(){
       sec.hidden = !any; });
   };
   $('#chiudi').onclick = chiudiConta;
+  if($('#elimAperta')) $('#elimAperta').onclick = async () => { if(!await ask('Eliminare questa lista? Quello che è stato scritto si perde e non parte nessun ordine.')) return;
+    clearTimeout(saveT); saveT = null; try{ await db.collection('conteggi').doc(c.id).delete(); }catch(e){}
+    if(S.bloccoRep && S.bloccoRep[c.reparto] === c.data) delete S.bloccoRep[c.reparto]; toast('Lista eliminata','ok'); openSede(c.sede, c.data); };
   $('#pronti').onclick = e => { const b = e.target.closest('[data-anticipo]'); if(b) ordineAnticipato(+b.dataset.anticipo); };
 }
 
@@ -735,10 +741,10 @@ function renderChiuso(){
     navigator.clipboard.writeText(testoFornitore(c,f,list)).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); };
   if(S.admin){
     $('#csv').onclick = () => exportCSV(c);
-    $('#riapri').onclick = async () => { if(!await ask('Riaprire la giacenza? Il tablet potrà modificarla di nuovo.')) return;
+    $('#riapri').onclick = async () => { if(!await ask('Riaprire la lista? Il tablet potrà modificarla di nuovo.')) return;
       await db.collection('conteggi').doc(c.id).update({stato:'bozza', dettaglio:FV.delete(), chiuso:FV.delete(), inviatiWa:FV.delete(), inoltrati:FV.delete()}); openConta(c.sede,c.data,c.reparto); };
-    $('#elim').onclick = async () => { if(!await ask('Eliminare definitivamente questa giacenza?')) return;
-      await db.collection('conteggi').doc(c.id).delete(); toast('Giacenza eliminata','ok'); openSede(c.sede,c.data); };
+    $('#elim').onclick = async () => { if(!await ask('Eliminare definitivamente questa lista?')) return;
+      await db.collection('conteggi').doc(c.id).delete(); toast('Lista eliminata','ok'); openSede(c.sede,c.data); };
   }
 }
 
@@ -825,7 +831,7 @@ function renderContaScelta(){
 /* ============ ADMIN: STORICO ============ */
 async function renderStorico(){
   const sel = S.stSede || '';
-  view('storico', `<div class="vhead"><h1>Storico giacenze</h1><select id="ss" class="sel"><option value="">Tutte le pizzerie</option>${SEDI.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(s.nome)}</option>`).join('')}</select></div><div id="sl"><p class="loading">Caricamento…</p></div>`);
+  view('storico', `<div class="vhead"><h1>Storico liste</h1><select id="ss" class="sel"><option value="">Tutte le pizzerie</option>${SEDI.map(s=>`<option value="${s.id}"${s.id===sel?' selected':''}>${esc(s.nome)}</option>`).join('')}</select></div><div id="sl"><p class="loading">Caricamento…</p></div>`);
   $('#ss').onchange = e => { S.stSede = e.target.value; renderStorico(); };
   let q = db.collection('conteggi'); if(sel) q = q.where('sede','==',sel);
   const qs = await q.get(); if(S.view!=='storico') return;
