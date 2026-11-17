@@ -756,6 +756,7 @@ function renderChiuso(){
   const cd = toDate(c.chiuso);
   /* un solo ordine per fornitore; "già inviato" solo se tutte le sue righe erano state inviate in anticipo */
   const gm = new Map(); ord.forEach(r => { const k = r.fornitore||'Senza fornitore'; if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
+  if(S.admin) (c.dettaglio||[]).filter(r => r.tolto).forEach(r => { const k = r.fornitore||'Senza fornitore'; if(!gm.has(k)) gm.set(k,[]); });
   FORN_UNICI.forEach(f => { if(!gm.has(f) && righeAltro(c,f).length) gm.set(f, []); });
   const groups = [...gm].map(([k,l]) => [k, l, l.length > 0 && l.every(r => r.inviato)]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
   const an = repNome(REPARTI.find(r => r.id !== c.reparto).id);
@@ -771,7 +772,8 @@ function renderChiuso(){
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw, att = !fatto && inAttesa(c,f,altroDoc(c)); return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
       ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:att?`<span class="pill wip">Lo manda ${esc(an)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
-    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}</li>`).join('')}</ul>
+    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}${S.admin && !fw ? ` <button class="link small" data-togli="${esc(r.id)}" style="color:var(--tom)">✕ non ordinare</button>` : ''}</li>`).join('')}</ul>
+    ${S.admin ? (() => { const t = (c.dettaglio||[]).filter(r => r.tolto && (r.fornitore||'Senza fornitore') === f); return t.length ? `<p class="small muted" style="margin:.3rem 0">Tolti da te: ${t.map(r => `${esc(r.nome)} (${fmtN(r.tolto)}) <button class="link small" data-rimetti="${esc(r.id)}">rimetti</button>`).join(', ')}</p>` : ''; })() : ''}
     ${S.admin ? (() => { const tutte = [...list, ...righeAltro(c,f)]; const conP = tutte.filter(r => prezzoDi(r.id) > 0);
         if(!conP.length) return ''; const tot = conP.reduce((t,r) => t + r.ordine * prezzoDi(r.id), 0), mn = MIN_ORDINE[f];
         return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${conP.length < tutte.length ? ` <span class="muted">(${tutte.length - conP.length} articoli senza prezzo)</span>` : ''}${mn && tot < mn ? `<br><b style="color:var(--tom)">Sotto il minimo d'ordine ${esc(f)} di ${eur(mn)}</b>` : ''}</p>`; })() : ''}
@@ -787,6 +789,11 @@ function renderChiuso(){
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
   main().onclick = async e => {
+    const tg = e.target.closest('[data-togli]'), rm = e.target.closest('[data-rimetti]');
+    if(tg || rm){ const r = (c.dettaglio||[]).find(x => x.id === (tg||rm).dataset[tg ? 'togli' : 'rimetti']); if(!r) return;
+      if(tg){ r.tolto = r.ordine; r.ordine = 0; } else { r.ordine = r.tolto; delete r.tolto; }
+      try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); }
+      toast(tg ? `${r.nome} tolto dall'ordine` : `${r.nome} rimesso nell'ordine`,'ok'); renderChiuso(); return; }
     const ft = e.target.closest('[data-fatt]');
     if(ft){ const r = (c.dettaglio||[]).find(x => x.id === ft.dataset.fatt); if(!r) return; r.fattura = r.fattura === 'gramsci' ? 'amendola' : 'gramsci';
       try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); }
