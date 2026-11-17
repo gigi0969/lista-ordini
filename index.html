@@ -233,17 +233,17 @@ const S = {tab:'settimana', articoli:[], catPending:{}};
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sedeNome = id => (SEDI.find(s => s.id === id) || {nome:id}).nome;
-const SEZ_ORD = SEED.map(s => s[0]);
+const SEZ_ORD = SEED.map(s => s[0]).flatMap(s => s === 'Sanfelici' ? [s, 'Stracci'] : [s]);
 /* Reparti: ogni pizzeria fa due giacenze separate */
 const REPARTI = [{id:'pizzeria', nome:'Pizzeria'}, {id:'sala', nome:'Bar e sala'}];
 const repNome = id => id === 'mag30' ? 'Magazzino Sanfelici 3.0' : (REPARTI.find(r => r.id === id) || {nome:id}).nome;
-const REP_SEZ = {'Sanfelici':'pizzeria','Verdure':'pizzeria','Salumi e formaggi':'pizzeria','Varie':'pizzeria','Senza glutine':'pizzeria'}; /* tutte le altre sezioni: sala */
+const REP_SEZ = {'Sanfelici':'pizzeria','Stracci':'pizzeria','Verdure':'pizzeria','Salumi e formaggi':'pizzeria','Varie':'pizzeria','Senza glutine':'pizzeria'}; /* tutte le altre sezioni: sala */
 const REP_SALA_ITEMS = ['Cannucce bar nere','Latte bar con tappo','Ghiaccio'];
 const repSeed = (sez,nome) => REP_SALA_ITEMS.includes(nome) ? 'sala' : (REP_SEZ[sez] || 'sala');
 const repDi = a => a.reparto || REP_SEZ[a.sezione] || 'sala';
 /* Sezioni in cui il personale scrive direttamente l'ordine (niente giacenza); escludi = sedi dove la sezione non c'è */
 /* Solo queste sezioni si contano e l'ordine lo calcola l'app (min/max); in tutte le altre il personale scrive direttamente quanto ordinare */
-const SEZ_CALCOLATE = ['Sanfelici','Liquori','Dolci Sal De Riso'];
+const SEZ_CALCOLATE = ['Sanfelici','Stracci','Liquori','Dolci Sal De Riso'];
 const SEZ_DIRETTE = new Proxy({}, {get: (o,sez) => typeof sez === 'string' && !SEZ_CALCOLATE.includes(sez) ? {escludi:[]} : undefined});
 function scorteSeed(sc){ const v = (sc||'').split(','); const o = {}; SEDI.forEach((s,i) => o[s.id] = Number(v[i]) || 0); return o; }
 const sezIdx = s => { const i = SEZ_ORD.indexOf(s); return i < 0 ? 999 : i; };
@@ -265,7 +265,12 @@ function calcOrdine(min,g,u,max,lotto,conf){
   if(conf > 1) return Math.ceil(o / conf) * conf;
   return isFraz(u) ? r1(o) : Math.ceil(o);
 }
-const LOTTI_SEED = {'Farina Lucia':40, 'Pizza Plus':10, 'Pelati S.Felici':20};
+const LOTTI_SEED = {'Farina Lucia':40, 'Pizza Plus':10, 'Pelati S.Felici':20, 'Stracci':10, 'Legna':40};
+/* articoli contati nella giacenza Sanfelici ma comprati da un altro fornitore */
+const FORN_SEED_OVERRIDE = {'Stracci':'Artioli', 'Legna':'Bernardo Legnami'};
+/* stracci: sezione propria, in tutte le pizzerie (anche Senza Glutine e 3.0); legna solo dove c'è il forno a legna */
+const SEZ_SEED_OVERRIDE = {'Stracci':'Stracci'};
+const SOLO_SEDI_ART = {'Legna':['gramsci','formigine']};
 const CONF_SEED = {'Porcini':6, 'Funghi':6, 'Friarielli':6, 'Tonno 385 gr Sanfelici':12, 'Acciughe 730 gr':12,
   'Crema di zucca':6, 'Crema tartufata':6, 'Crema di pecorino':6, 'Piennolo':12, 'Olio EVO 500 ml':6, 'Carciofi gambo':6, 'Soleggiati':6};
 /* Prezzi Sanfelici dai DDT (prezzo per unità di conteggio; salumi a peso = stima per pezzo). Data dell'ultimo DDT visto. */
@@ -273,7 +278,9 @@ const PREZZI_SEED = {'Farina Tipo 1':18.25, 'Farina integrale':28.10, 'Spolverin
   'Pelati S.Felici':22.97, 'Pelati Solania':35.88, 'Tonno 385 gr Sanfelici':5.95, 'Acciughe 730 gr':13.42, 'Porcini':14.46,
   'Funghi':7.59, 'Friarielli':5.23, 'Capperi':11.70, 'Carciofi gambo':7.00, 'Crema di zucca':5.20, 'Crema tartufata':10.80,
   'Crema di pecorino':11.67, 'Piennolo':2.25, 'Olio EVO 500 ml':11.28, 'Soleggiati':8.30, 'Origano':16.95,
-  'Cotto':100, 'Crudo Parma':138, 'Spianata':24, 'Pancetta':55};
+  'Cotto':100, 'Crudo Parma':138, 'Spianata':24, 'Pancetta':55,
+  'Stracci':9.73 /* Artioli: pezzame 3,891 €/kg, pacco da 2,5 kg (10 pacchi = 25 kg) */,
+  'Legna':16.15 /* Bernardo Legnami: bancale 40 cartoni faggio 561 € + trasporto 85 € = 646 € / 40 */};
 const PREZZI_DATA = '2026-11-13';
 const MIN_ORDINE = {'Sanfelici':300};
 const eur = v => '€ ' + (Math.round(v*100)/100).toFixed(2).replace('.',',');
@@ -285,11 +292,11 @@ function groupBy(arr,key){ const m = new Map(); arr.forEach(x => { const k = typ
 const ymd = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 /* Giorni delle liste: domenica (0) e giovedì (4). Sanfelici solo la domenica (ordine poi girato martedì/mercoledì). */
 const GIORNI_LISTA = [0,4];
-const GIORNI_FORNITORE = {'Sanfelici':[0], 'Sammarco':[0]};
+const GIORNI_FORNITORE = {'Sanfelici':[0], 'Sammarco':[0], 'Artioli':[0], 'Bernardo Legnami':[0]};
 /* Giacenza alcolici: se attiva dal titolare, queste sezioni si contano (min/max) invece dell'ordine diretto */
 const SEZ_ALCOLICI = ['Vini bianchi','Vini rossi','Bollicine','Amari e distillati'];
 /* Sezioni in uso per sede (se una sede non è elencata le usa tutte) */
-const SEZ_SOLO = {'senzaglutine': ['Verdure','Pulizie','Salumi e formaggi','Bibite','Varie']};
+const SEZ_SOLO = {'senzaglutine': ['Verdure','Pulizie','Salumi e formaggi','Bibite','Varie','Stracci']};
 const sezInSede = (sez,sede) => !SEZ_SOLO[sede] || SEZ_SOLO[sede].includes(sez);
 /* Magazzino Sanfelici della 3.0: sta fisicamente alla 2.0, lo conta il tablet della 2.0 come terzo reparto ("mag30"),
    con minimi e massimi della 3.0 e ordine separato (fatturato a Viale Group). La Farina Lucia è comune: si conta solo alla 2.0
@@ -651,7 +658,7 @@ async function chiudiConta(){
   const q = $('#q'); if(q.value){ q.value=''; q.dispatchEvent(new Event('input')); }
   const miss = [...document.querySelectorAll('#lista .row:not([data-dir])')].filter(r => typeof c.righe[r.dataset.id] !== 'number');
   /* Giacenza Sanfelici obbligatoria: l'ordine si calcola da lì */
-  const OBBLIGATORI = ['Sanfelici','Sammarco'];
+  const OBBLIGATORI = ['Sanfelici','Sammarco','Artioli','Bernardo Legnami'];
   const missObb = miss.filter(r => { const a = S.contaArts.find(x => x.id === r.dataset.id); return a && OBBLIGATORI.includes(a.fornitore); });
   if(missObb.length){
     missObb.forEach(r => r.classList.add('flash'));
@@ -694,7 +701,7 @@ async function chiudiConta(){
 function testoOrdine(c,f,list){
   const sez = [...groupBy(list, r => r.sezione || 'Altro')];
   const testa = c.reparto === MAG30.id ? `*ORDINE ${f.toUpperCase()} – 3.0 AMENDOLA*\n${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : `*ORDINE ${f.toUpperCase()} – ${repNome(c.reparto).toUpperCase()}*\n${sedeNome(c.sede)}`;
-  return `${testa}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n');
+  return `${testa}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${(s === 'Sanfelici' && f !== 'Sanfelici' ? f : s).toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n');
 }
 
 /* Metro: un solo messaggio per pizzeria, unendo Pizzeria e Bar e sala dello stesso giorno.
@@ -720,7 +727,7 @@ function testoFornitore(c,f,list){ const al = righeAltro(c,f);
   if(!S.admin && !al.length) return testoOrdine(c,f,list);
   const sez = [...groupBy([...list, ...al], r => r.sezione || 'Altro')];
   const nomeS = c.reparto === MAG30.id ? `${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : sedeNome(c.sede);
-  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${nomeS}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n'); }
+  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${nomeS}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${(s === 'Sanfelici' && f !== 'Sanfelici' ? f : s).toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n'); }
 
 /* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
 const STATI_DAL = '2026-11-09';
@@ -824,12 +831,12 @@ function exportCSV(c){
 }
 
 /* ============ ADMIN: MAGAZZINO SANFELICI (come il foglio Excel) ============ */
-const MAG_FORN = ['Sanfelici','Sammarco'];
+const MAG_FORN = ['Sanfelici','Sammarco','Artioli','Bernardo Legnami'];
 async function renderMagazzino(){
   const sede = sedeAttiva(), n = S.mgN || 8;
-  view('magazzino', `<div class="vhead"><h1>Magazzino Sanfelici e Sammarco</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
+  view('magazzino', `<div class="vhead"><h1>Magazzino</h1><select id="ms" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>${esc(s.nome)}</option>`).join('')}</select>
     <select id="mn" class="sel">${[[4,'Ultime 4'],[8,'Ultime 8'],[13,'Ultime 13'],[999,'Tutte']].map(([v,t])=>`<option value="${v}"${v===n?' selected':''}>${t}</option>`).join('')}</select><button class="btn" id="mcsv">Esporta Excel</button></div>
-    <p class="muted small">Ogni giacenza Sanfelici e Sammarco (liquori) chiusa, con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
+    <p class="muted small">Giacenze di Sanfelici, Sammarco (liquori), Artioli (stracci) e Bernardo Legnami (legna), con quanto è stato ordinato. Min e max sono quelli attuali del catalogo.</p><div id="mb"><p class="loading">Caricamento…</p></div>`);
   $('#ms').onchange = e => { setSedeAttiva(e.target.value); renderMagazzino(); };
   $('#mn').onchange = e => { S.mgN = +e.target.value; renderMagazzino(); };
   let docs;
@@ -1129,19 +1136,24 @@ async function allineaCatalogo(){
   const lotti = S.articoli.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
   const confs = S.articoli.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
   const prezzi = S.articoli.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
-  const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
+  const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione && !(SOLO_SEDI_ART[a.nome] && !SOLO_SEDI_ART[a.nome].includes(MAG30.sedeScorte))), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
-  const fornSeed = {}; std.forEach(x => { if(x.forn === 'Sammarco') fornSeed[key(x.nome)] = x.forn; });
+  std.forEach(x => { if(FORN_SEED_OVERRIDE[x.nome]) x.forn = FORN_SEED_OVERRIDE[x.nome]; if(SEZ_SEED_OVERRIDE[x.nome]) x.sez = SEZ_SEED_OVERRIDE[x.nome]; });
+  const cambiaSez = S.articoli.filter(a => SEZ_SEED_OVERRIDE[a.nome] && a.sezione !== SEZ_SEED_OVERRIDE[a.nome]);
+  const fuoriSede = S.articoli.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
+  const fornSeed = {}; std.forEach(x => { if(['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
   const cambiaForn = S.articoli.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
-  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !riattiva30.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
+  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   if(nuovi.length) righe.push('Da aggiungere: ' + nuovi.map(x=>x.nome).join(', '));
   if(tolti.length) righe.push('Da eliminare: ' + tolti.map(a=>a.nome).join(', '));
+  if(cambiaSez.length) righe.push('Sezione propria per: ' + cambiaSez.map(a=>a.nome).join(', ') + ' (in tutte le pizzerie)');
+  if(fuoriSede.length) righe.push(fuoriSede.map(a => `${a.nome} solo per ${SOLO_SEDI_ART[a.nome].map(sedeNome).join(' e ')}`).join(', '));
   if(riattiva30.length) righe.push('Riattivati gli articoli Sanfelici della 3.0 (li conta la 2.0 nel Magazzino Sanfelici 3.0)');
   if(prezzi.length) righe.push('Prezzi dai DDT Sanfelici: ' + prezzi.length + ' articoli');
   if(confs.length) righe.push('Cartoni interi: ' + confs.map(a=>a.nome+' da '+CONF_SEED[a.nome]).join(', '));
   if(lotti.length) righe.push('Ordine fisso: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
-  if(cambiaForn.length) righe.push('Passano a Sammarco: ' + cambiaForn.map(a=>a.nome).join(', '));
+  if(cambiaForn.length) righe.push('Cambio fornitore: ' + cambiaForn.map(a=>`${a.nome} → ${fornSeed[key(a.nome)]}`).join(', '));
   if(sezSede.length) righe.push('Sezioni disattivate: ' + SEDI.flatMap(s => [...new Set(sezSede.filter(a => !sezInSede(a.sezione,s.id) && attivo(a,s.id)).map(a => a.sezione))].map(z => `${z} per ${s.nome}`)).join(', '));
   if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
   const b = db.batch();
@@ -1150,6 +1162,8 @@ async function allineaCatalogo(){
     b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, conf:CONF_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
   tolti.forEach(a => b.delete(db.collection('articoli').doc(a.id)));
   lotti.forEach(a => b.update(db.collection('articoli').doc(a.id), {lotto: LOTTI_SEED[a.nome]}));
+  cambiaSez.forEach(a => { const z = SEZ_SEED_OVERRIDE[a.nome], u = {sezione: z, reparto: repSeed(z, a.nome)}; SEDI.forEach(s => { if(sezInSede(z, s.id)) u[`sedi.${s.id}.on`] = true; }); b.update(db.collection('articoli').doc(a.id), u); });
+  fuoriSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!SOLO_SEDI_ART[a.nome].includes(s.id)) u[`sedi.${s.id}.on`] = false; }); b.update(db.collection('articoli').doc(a.id), u); });
   riattiva30.forEach(a => b.update(db.collection('articoli').doc(a.id), {[`sedi.${MAG30.sedeScorte}.on`]: true}));
   prezzi.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_SEED[a.nome], prezzoData: PREZZI_DATA}));
   confs.forEach(a => b.update(db.collection('articoli').doc(a.id), {conf: CONF_SEED[a.nome]}));
