@@ -236,7 +236,7 @@ const sedeNome = id => (SEDI.find(s => s.id === id) || {nome:id}).nome;
 const SEZ_ORD = SEED.map(s => s[0]);
 /* Reparti: ogni pizzeria fa due giacenze separate */
 const REPARTI = [{id:'pizzeria', nome:'Pizzeria'}, {id:'sala', nome:'Bar e sala'}];
-const repNome = id => (REPARTI.find(r => r.id === id) || {nome:id}).nome;
+const repNome = id => id === 'mag30' ? 'Magazzino Sanfelici 3.0' : (REPARTI.find(r => r.id === id) || {nome:id}).nome;
 const REP_SEZ = {'Sanfelici':'pizzeria','Verdure':'pizzeria','Salumi e formaggi':'pizzeria','Varie':'pizzeria','Senza glutine':'pizzeria'}; /* tutte le altre sezioni: sala */
 const REP_SALA_ITEMS = ['Cannucce bar nere','Latte bar con tappo','Ghiaccio'];
 const repSeed = (sez,nome) => REP_SALA_ITEMS.includes(nome) ? 'sala' : (REP_SEZ[sez] || 'sala');
@@ -256,14 +256,28 @@ const r1 = n => Math.round(n*10)/10;
 /* Minimo = soglia di riordino; Massimo = quantità da raggiungere con l'ordine.
    Si ordina solo se la giacenza è sotto il minimo, fino al massimo. Senza massimo si riporta al minimo. */
 /* lotto = ordine fisso: sotto il minimo si ordina sempre questa quantità (es. Farina Lucia 40 = un bancale, Pizza Plus 10 = un cartone) */
-function calcOrdine(min,g,u,max,lotto){
+function calcOrdine(min,g,u,max,lotto,conf){
   if(typeof g !== 'number') return 0;
   const soglia = min > 0 ? min : (max > 0 ? max : 0); if(!soglia || g >= soglia) return 0;
   const target = max > 0 ? Math.max(max, soglia) : soglia; const o = target - g; if(o <= 0) return 0;
   if(lotto > 0) return lotto;
+  /* confezione: si ordinano solo cartoni interi (es. tonno 12, porcini 6), arrotondando per eccesso */
+  if(conf > 1) return Math.ceil(o / conf) * conf;
   return isFraz(u) ? r1(o) : Math.ceil(o);
 }
-const LOTTI_SEED = {'Farina Lucia':40, 'Pizza Plus':10};
+const LOTTI_SEED = {'Farina Lucia':40, 'Pizza Plus':10, 'Pelati S.Felici':20};
+const CONF_SEED = {'Porcini':6, 'Funghi':6, 'Friarielli':6, 'Tonno 385 gr Sanfelici':12, 'Acciughe 730 gr':12,
+  'Crema di zucca':6, 'Crema tartufata':6, 'Crema di pecorino':6, 'Piennolo':12, 'Olio EVO 500 ml':6, 'Carciofi gambo':6, 'Soleggiati':6};
+/* Prezzi Sanfelici dai DDT (prezzo per unità di conteggio; salumi a peso = stima per pezzo). Data dell'ultimo DDT visto. */
+const PREZZI_SEED = {'Farina Tipo 1':18.25, 'Farina integrale':28.10, 'Spolverina':11.97, 'Pizza Plus':5.95,
+  'Pelati S.Felici':22.97, 'Pelati Solania':35.88, 'Tonno 385 gr Sanfelici':5.95, 'Acciughe 730 gr':13.42, 'Porcini':14.46,
+  'Funghi':7.59, 'Friarielli':5.23, 'Capperi':11.70, 'Carciofi gambo':7.00, 'Crema di zucca':5.20, 'Crema tartufata':10.80,
+  'Crema di pecorino':11.67, 'Piennolo':2.25, 'Olio EVO 500 ml':11.28, 'Soleggiati':8.30, 'Origano':16.95,
+  'Cotto':100, 'Crudo Parma':138, 'Spianata':24, 'Pancetta':55};
+const PREZZI_DATA = '2026-11-13';
+const MIN_ORDINE = {'Sanfelici':300};
+const eur = v => '€ ' + (Math.round(v*100)/100).toFixed(2).replace('.',',');
+const prezzoDi = id => { const a = S.articoli.find(x => x.id === id); return a && Number(a.prezzo) > 0 ? Number(a.prezzo) : 0; };
 function num(v){ if(v===''||v==null) return null; const n = parseFloat(String(v).replace(',','.')); return isNaN(n)||n<0 ? null : n; }
 const fmtN = n => n==null ? '' : String(n).replace('.',',');
 const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
@@ -277,6 +291,29 @@ const SEZ_ALCOLICI = ['Vini bianchi','Vini rossi','Bollicine','Amari e distillat
 /* Sezioni in uso per sede (se una sede non è elencata le usa tutte) */
 const SEZ_SOLO = {'senzaglutine': ['Verdure','Pulizie','Salumi e formaggi','Bibite','Varie']};
 const sezInSede = (sez,sede) => !SEZ_SOLO[sede] || SEZ_SOLO[sede].includes(sez);
+/* Magazzino Sanfelici della 3.0: sta fisicamente alla 2.0, lo conta il tablet della 2.0 come terzo reparto ("mag30"),
+   con minimi e massimi della 3.0 e ordine separato (fatturato a Viale Group). La Farina Lucia è comune: si conta solo alla 2.0
+   e la fattura si alterna tra 2.0 e 3.0. */
+const MAG30 = {id:'mag30', nome:'Magazzino Sanfelici 3.0', sedeOspite:'gramsci', sedeScorte:'amendola', sezione:'Sanfelici', comuni:['Farina Lucia']};
+const repartiDi = sede => sede === MAG30.sedeOspite ? [...REPARTI, {id:MAG30.id, nome:MAG30.nome}] : REPARTI;
+const sedeScorte = c => c.reparto === MAG30.id ? MAG30.sedeScorte : c.sede;
+const FATT = {gramsci:'TEPE (2.0)', amendola:'Viale Group (3.0)'};
+function artsPer(sede, rep, data){
+  if(rep === MAG30.id) return S.articoli.filter(a => a.sezione === MAG30.sezione && !MAG30.comuni.includes(a.nome) && attivo(a, MAG30.sedeScorte) && inGiorno(a,data));
+  return S.articoli.filter(a => attivo(a,sede) && repDi(a)===rep && inGiorno(a,data) && !(sede === MAG30.sedeScorte && a.sezione === MAG30.sezione));
+}
+const rigaTxt = r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
+/* liste con la pizzeria "vera": quelle del magazzino 3.0 contano per la 3.0 */
+async function caricaListe(sede){
+  const q = (sede === 'tutte' || sede === MAG30.sedeScorte || sede === MAG30.sedeOspite) ? db.collection('conteggi') : db.collection('conteggi').where('sede','==',sede);
+  const qs = await q.get();
+  return qs.docs.map(d => d.data()).map(d => d.reparto === MAG30.id ? {...d, sede: MAG30.sedeScorte} : d).filter(d => sede === 'tutte' || d.sede === sede);
+}
+/* Fornitori alternativi: per questi articoli, in 2.0 e 3.0, scegli tu a chi mandare l'ordine */
+const ALT_FORN = {'Pancetta al pepe':['Villani'], 'Ventricina':['Villani'], 'Capocollo Martina Franca':['Villani']};
+const ALT_SEDI = ['gramsci','amendola'];
+const altDi = (r,c) => { if(!ALT_FORN[r.nome] || !ALT_SEDI.includes(c.sede)) return [];
+  const base = r.fornOrig || r.fornitore; return [base, ...ALT_FORN[r.nome]].filter(f => f !== r.fornitore); };
 const isDir = a => !!a.diretto && !((S.impostazioni||{}).giacenzaAlcolici && SEZ_ALCOLICI.includes(a.sezione));
 /* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
 const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
@@ -405,19 +442,20 @@ async function openSede(sede,data){
   if(S.admin) setSedeAttiva(sede);
   view('sede','<p class="loading">Caricamento…</p>');
   let snaps;
-  try{ snaps = await Promise.all(REPARTI.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
+  const REPS = repartiDi(sede).filter(r => r.id !== MAG30.id || artsPer(sede, r.id, data).length);
+  try{ snaps = await Promise.all(REPS.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere le giacenze (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   if(S.view!=='sede') return;
-  const blocco = r => !S.admin && data === ymd(oggiLista()) && (S.bloccoRep||{})[r] && !(snaps[REPARTI.findIndex(x=>x.id===r)]||{}).exists ? S.bloccoRep[r] : null;
-  const blocchi = REPARTI.map(r => [r.id, blocco(r.id)]).filter(x => x[1]);
+  const blocco = r => !S.admin && data === ymd(oggiLista()) && (S.bloccoRep||{})[r] && !(snaps[REPS.findIndex(x=>x.id===r)]||{}).exists ? S.bloccoRep[r] : null;
+  const blocchi = REPS.map(r => [r.id, blocco(r.id)]).filter(x => x[1]);
   /* lista vecchia ancora aperta ma quella di oggi già iniziata: non blocca, ma si deve poter aprire per finirla */
-  const vecchie = !S.admin && data === ymd(oggiLista()) ? REPARTI.filter(r => (S.bloccoRep||{})[r.id] && !blocco(r.id)).map(r => [r.id, S.bloccoRep[r.id]]) : [];
+  const vecchie = !S.admin && data === ymd(oggiLista()) ? REPS.filter(r => (S.bloccoRep||{})[r.id] && !blocco(r.id)).map(r => [r.id, S.bloccoRep[r.id]]) : [];
   view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
     <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
     ${blocchi.length ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${blocchi.map(([r,d]) => `${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da chiudere e inviare. Non puoi fare la lista nuova finché non la chiudi (se non c'è niente da ordinare, chiudila vuota).`).join('<br>')}</p>` : ''}
     ${vecchie.map(([r,d]) => `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da finire e chiudere. <button class="btn" data-apri="${d}" style="margin-left:.5rem">Apri la lista di ${dayName(d)}</button></p>`).join('')}
     ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
-    <div class="sedi-grid" style="margin-top:1rem">${REPARTI.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, snaps[1-i]);
+    <div class="sedi-grid" style="margin-top:1rem">${REPS.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, i < 2 ? snaps[1-i] : null);
       const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Tocca per aprire la lista di ${dayName(bd)} e chiuderla`; }
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
   main().onclick = e => { const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
@@ -426,11 +464,11 @@ async function openSede(sede,data){
     openConta(sede, data, b.dataset.r); };
 }
 function statoConta(sn, sede, rep, data, altroSn){
-  const gArts = S.articoli.filter(a => attivo(a,sede) && !isDir(a) && repDi(a)===rep && inGiorno(a,data));
+  const gArts = artsPer(sede, rep, data).filter(a => !isDir(a));
   if(!sn.exists) return {stato:'Da fare', cls:'todo', info: gArts.length ? `${gArts.length} articoli da contare` : 'Solo ordini, niente da contare'};
   const c = sn.data();
   if(c.stato==='chiuso'){ const a = altroSn && altroSn.exists ? altroSn.data() : null, m = fornitoriDaInviare(c, a), w = fornitoriInAttesa(c, a);
-    const an = repNome(REPARTI.find(r => r.id !== rep).id);
+    const an = repNome((REPARTI.find(r => r.id !== rep) || REPARTI[0]).id);
     return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}${w.length ? ` · ${w.map(esc).join(', ')} lo manda ${an}` : ''}`}; }
   return {stato:'In corso', cls:'wip', info: gArts.length ? `${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati` : 'Ordini in compilazione'};
 }
@@ -466,7 +504,7 @@ async function openConta(sede,data,rep){
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
   S.conta.righe = S.conta.righe || {}; S.altro = null;
-  if(S.conta.stato === 'chiuso'){ const ar = REPARTI.find(r => r.id !== rep);
+  if(S.conta.stato === 'chiuso' && rep !== MAG30.id){ const ar = REPARTI.find(r => r.id !== rep);
     try{ const sa = await db.collection('conteggi').doc(`${sede}_${data}_${ar.id}`).get(); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){} }
   if(S.conta.stato !== 'chiuso'){ await caricaAbituali(sede, rep, data); await caricaProgOrdinati(sede, data, id); }
   S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
@@ -483,7 +521,7 @@ function rowHtml(a,v){
 
 function renderConta(){
   const c = S.conta;
-  const arts = S.articoli.filter(a => attivo(a,c.sede) && repDi(a)===c.reparto && inGiorno(a,c.data)); S.contaArts = arts;
+  const arts = artsPer(c.sede, c.reparto, c.data); S.contaArts = arts;
   if(!arts.length){ view('conta', `<h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="empty">Nessun articolo per questo reparto. ${S.admin?'Caricalo da Catalogo e scorte.':"Avvisa l'amministratore."}</p>`); return; }
   const groups = [...groupBy(arts,'sezione')]; S.contaGroups = groups; c.inviati = c.inviati || {};
   view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
@@ -539,8 +577,8 @@ function footSezione(sec, completa, mancano, compilati){
 function righeOrdine(c, list){
   return list.map(a => { const base = {id:a.id, nome:a.nome, unita:a.unita||'', sezione:a.sezione||'', fornitore:a.fornitore||''};
     if(isDir(a)){ const q = c.righe[a.id]; return {...base, g:null, scorta:0, ordine: q > 0 ? q : 0, diretto:true}; }
-    const g = typeof c.righe[a.id] === 'number' ? c.righe[a.id] : null, sc = scortaDi(a,c.sede), mx = maxDi(a,c.sede);
-    return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx,Number(a.lotto)||0)}; });
+    const g = typeof c.righe[a.id] === 'number' ? c.righe[a.id] : null, sc = scortaDi(a,sedeScorte(c)), mx = maxDi(a,sedeScorte(c));
+    return {...base, g, scorta:sc, max:mx, ordine:calcOrdine(sc,g,a.unita,mx,Number(a.lotto)||0,Number(a.conf)||0)}; });
 }
 
 async function ordineAnticipato(i){
@@ -631,6 +669,13 @@ async function chiudiConta(){
     const fresh = new Map(qs.docs.map(d => [d.id, {id:d.id, ...d.data()}]));
     S.contaArts = S.contaArts.map(a => fresh.get(a.id) || a); }catch(e){}
   const dettaglio = righeOrdine(c, S.contaArts).map(r => inv[r.sezione] ? {...r, inviato:true} : r);
+  /* Farina Lucia comune 2.0/3.0: la fattura si alterna rispetto all'ultimo ordine */
+  if(c.sede === MAG30.sedeOspite && c.reparto !== MAG30.id){ const comuni = dettaglio.filter(r => MAG30.comuni.includes(r.nome) && r.ordine > 0);
+    if(comuni.length){ let ultima = null;
+      try{ const qs = await Promise.race([db.collection('conteggi').where('sede','==',c.sede).get(), new Promise((_,rj)=>setTimeout(()=>rj(),5000))]);
+        qs.docs.map(d=>d.data()).filter(d => d.stato==='chiuso' && d.data < c.data && d.dettaglio).sort((x,y)=>y.data.localeCompare(x.data))
+          .some(d => { const r = d.dettaglio.find(x => MAG30.comuni.includes(x.nome) && x.ordine > 0 && x.fattura); if(r){ ultima = r.fattura; return true; } return false; }); }catch(e){}
+      comuni.forEach(r => r.fattura = ultima === 'gramsci' ? 'amendola' : 'gramsci'); } }
   const doc = {sede:c.sede, data:c.data, reparto:c.reparto, stato:'chiuso', operatore:c.operatore.trim(), righe:c.righe, inviati:inv, creato:c.creato||new Date(), chiuso:new Date(), dettaglio};
   if(S.bloccoRep && S.bloccoRep[c.reparto] === c.data) delete S.bloccoRep[c.reparto];
   const btn = $('#chiudi'); btn.disabled=true; btn.textContent='Chiusura…';
@@ -641,14 +686,15 @@ async function chiudiConta(){
     await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
   catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent='Chiudi lista e invia ordini'; return; }
   S.conta = {id:c.id, ...doc}; S.altro = null;
-  try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
+  if(c.reparto !== MAG30.id) try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
   renderChiuso();
   toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : 'Lista chiusa: ora invia gli ordini','ok');
 }
 
 function testoOrdine(c,f,list){
   const sez = [...groupBy(list, r => r.sezione || 'Altro')];
-  return `*ORDINE ${f.toUpperCase()} – ${repNome(c.reparto).toUpperCase()}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n');
+  const testa = c.reparto === MAG30.id ? `*ORDINE ${f.toUpperCase()} – 3.0 AMENDOLA*\n${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : `*ORDINE ${f.toUpperCase()} – ${repNome(c.reparto).toUpperCase()}*\n${sedeNome(c.sede)}`;
+  return `${testa}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n');
 }
 
 /* Metro: un solo messaggio per pizzeria, unendo Pizzeria e Bar e sala dello stesso giorno.
@@ -673,7 +719,8 @@ function righeAltro(c,f,a = altroDoc(c)){
 function testoFornitore(c,f,list){ const al = righeAltro(c,f);
   if(!S.admin && !al.length) return testoOrdine(c,f,list);
   const sez = [...groupBy([...list, ...al], r => r.sezione || 'Altro')];
-  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${sedeNome(c.sede)}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}`).join('\n')).join('\n'); }
+  const nomeS = c.reparto === MAG30.id ? `${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : sedeNome(c.sede);
+  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${nomeS}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${s.toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n'); }
 
 /* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
 const STATI_DAL = '2026-11-09';
@@ -717,7 +764,10 @@ function renderChiuso(){
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw, att = !fatto && inAttesa(c,f,altroDoc(c)); return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
       ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:att?`<span class="pill wip">Lo manda ${esc(an)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
-    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}</li>`).join('')}</ul>
+    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}</li>`).join('')}</ul>
+    ${S.admin ? (() => { const tutte = [...list, ...righeAltro(c,f)]; const conP = tutte.filter(r => prezzoDi(r.id) > 0);
+        if(!conP.length) return ''; const tot = conP.reduce((t,r) => t + r.ordine * prezzoDi(r.id), 0), mn = MIN_ORDINE[f];
+        return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${conP.length < tutte.length ? ` <span class="muted">(${tutte.length - conP.length} articoli senza prezzo)</span>` : ''}${mn && tot < mn ? `<br><b style="color:var(--tom)">Sotto il minimo d'ordine ${esc(f)} di ${eur(mn)}</b>` : ''}</p>`; })() : ''}
     ${(() => { const al = righeAltro(c,f);
         if(al.length) return `<p class="muted" style="margin:.4rem 0">${list.length ? '+ ' : ''}${al.length} articoli ${esc(f)} di ${esc(an)}: ${S.admin ? 'li inoltri' : 'partono'} insieme in un solo messaggio.</p>`;
         if(!fatto && inAttesa(c,f,altroDoc(c))) return `<p class="muted" style="margin:.4rem 0">${esc(f)} parte in un solo messaggio per tutta la pizzeria: lo manda ${esc(an)} quando chiude la sua lista.${S.admin ? '' : ` Se oggi ${esc(an)} non fa la lista, premi <b>Invia lo stesso</b>.`}</p>`;
@@ -730,6 +780,17 @@ function renderChiuso(){
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
   main().onclick = async e => {
+    const ft = e.target.closest('[data-fatt]');
+    if(ft){ const r = (c.dettaglio||[]).find(x => x.id === ft.dataset.fatt); if(!r) return; r.fattura = r.fattura === 'gramsci' ? 'amendola' : 'gramsci';
+      try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); }
+      toast(`${r.nome}: fattura a ${FATT[r.fattura]}`,'ok'); renderChiuso(); return; }
+    const sp = e.target.closest('[data-sposta]');
+    if(sp){ const r = (c.dettaglio||[]).find(x => x.id === sp.dataset.sposta); if(!r) return;
+      const da = r.fornitore, a = sp.dataset.a; if(!r.fornOrig) r.fornOrig = da; r.fornitore = a;
+      if(r.fornitore === r.fornOrig) delete r.fornOrig;
+      const inv = c.inviatiWa || {}; if(inv[da] && !inv[a]) c.inviatiWa = {...inv, [a]: inv[da]};
+      try{ await db.collection('conteggi').doc(c.id).update(JSON.parse(JSON.stringify({dettaglio: c.dettaglio, inviatiWa: c.inviatiWa || {}}))); }catch(err){ toast('Errore: '+err.message,'err'); }
+      toast(`${r.nome} spostato su ${a}`,'ok'); renderChiuso(); return; }
     const sg = e.target.closest('[data-segna]'), tt = e.target.closest('[data-tutti]');
     if(sg || tt){ const ora = new Date().toISOString(); c.inoltrati = {...(c.inoltrati||{})};
       (tt ? groups : [groups[+sg.dataset.segna]]).forEach(([f]) => { if(!c.inoltrati[f]) c.inoltrati[f] = ora; });
@@ -772,7 +833,7 @@ async function renderMagazzino(){
   $('#ms').onchange = e => { setSedeAttiva(e.target.value); renderMagazzino(); };
   $('#mn').onchange = e => { S.mgN = +e.target.value; renderMagazzino(); };
   let docs;
-  try{ const qs = await db.collection('conteggi').where('sede','==',sede).get(); docs = qs.docs.map(d=>d.data()); }
+  try{ docs = await caricaListe(sede); }
   catch(e){ $('#mb').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
   if(S.view!=='magazzino') return;
   const perData = {};
@@ -859,9 +920,8 @@ async function renderOrdini(){
     <div id="ob"><p class="loading">Caricamento…</p></div>`);
   $('#os').onchange = e => { setSedeAttiva(e.target.value); renderOrdini(); };
   if($('#oo')) $('#oo').onchange = e => { S.orSolo = e.target.checked; renderOrdini(); };
-  let q = db.collection('conteggi'); if(sede !== 'tutte') q = q.where('sede','==',sede);
-  const qs = await q.get(); if(S.view !== 'ordini') return;
-  const liste = qs.docs.map(d=>d.data()).filter(d => d.stato==='chiuso' && d.dettaglio);
+  const tutteL = await caricaListe(sede); if(S.view !== 'ordini') return;
+  const liste = tutteL.filter(d => d.stato==='chiuso' && d.dettaglio);
   const info = {}; S.articoli.forEach(a => info[a.id] = a);
   const sett = {}; /* sett[sede][settimana][id] = qta */
   liste.forEach(l => { const w = lunedi(l.data); const s = (sett[l.sede] = sett[l.sede] || {}); const m = (s[w] = s[w] || {});
@@ -947,7 +1007,7 @@ function catRow(a,sede){
   const on = p.on !== undefined ? p.on : s.on !== false;
   const sc = p.scorta !== undefined ? p.scorta : (Number(s.scorta) > 0 ? Number(s.scorta) : null);
   const mx = p.max !== undefined ? p.max : (Number(s.max) > 0 ? Number(s.max) : null);
-  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}${a.lotto>0?`, ordine fisso ${a.lotto}`:''}</small></div>
+  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}${a.lotto>0?`, ordine fisso ${a.lotto}`:''}${a.conf>1?`, cartone da ${a.conf}`:''}${a.prezzo>0?`, ${eur(a.prezzo)}${a.prezzoPrec>0&&a.prezzoPrec!==a.prezzo?` <b style="color:${a.prezzo>a.prezzoPrec?'var(--tom)':'inherit'}">(prima ${eur(a.prezzoPrec)})</b>`:''}`:''}</small></div>
     <label class="chk"><input type="checkbox" data-on${on?' checked':''}> In uso</label>
     ${isDir(a) ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
 }
@@ -1028,13 +1088,16 @@ function editArticolo(id){
     <label class="fld">Fornitore<input id="af" list="dl-forn" value="${esc(a.fornitore)}"></label>
     <label class="fld">Unità di conteggio<select id="au">${units.map(u=>`<option${u===a.unita?' selected':''}>${esc(u)}</option>`).join('')}</select></label>
     <label class="fld">Ordine fisso: sotto il minimo ordina sempre questa quantità (es. 40 = un bancale; vuoto = calcolato fino al massimo)<input id="alot" inputmode="numeric" value="${a.lotto>0?a.lotto:''}"></label>
+    <label class="fld">Cartone da: l'ordine si arrotonda a cartoni interi (es. 12 = si ordina 12, 24, 36…; vuoto = pezzi singoli)<input id="aconf" inputmode="numeric" value="${a.conf>1?a.conf:''}"></label>
+    <label class="fld">Prezzo per unità di conteggio (€, solo per te: serve a stimare il valore dell'ordine)${a.prezzoData?` <small class="muted">aggiornato il ${fmt(a.prezzoData)}</small>`:''}<input id="aprz" inputmode="decimal" value="${a.prezzo>0?String(a.prezzo).replace('.',','):''}"></label>
     <label class="fld">Reparto<select id="arep">${REPARTI.map(r=>`<option value="${r.id}"${r.id===(id?repDi(a):'pizzeria')?' selected':''}>${r.nome}</option>`).join('')}</select></label>
     <label class="chk" style="margin-bottom:1rem"><input type="checkbox" id="adir"${a.diretto?' checked':''}> Ordine diretto: il personale scrive quanto ordinare, senza giacenza</label>
     <datalist id="dl-sez">${sezs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <datalist id="dl-forn">${forns.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <div class="acts">${id?'<button class="btn danger" id="adel">Elimina</button>':''}<span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="asave">Salva</button></div>`, m => {
     m.querySelector('#asave').onclick = async () => {
-      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), diretto:$('#adir').checked, reparto:$('#arep').value};
+      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), conf:Math.max(0, parseInt($('#aconf').value)||0), ...(() => { const v = Math.max(0, parseFloat(($('#aprz').value||'').replace(',','.'))||0), old = Number(a.prezzo)||0;
+        return v === old ? {} : {prezzo:v, prezzoData:ymd(new Date()), prezzoPrec:old}; })(), diretto:$('#adir').checked, reparto:$('#arep').value};
       if(!d.nome){ toast('Inserisci il nome','err'); return; }
       if(id) await db.collection('articoli').doc(id).update(d);
       else { const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on:true, scorta:0});
@@ -1058,23 +1121,32 @@ async function allineaCatalogo(){
   const nuovi = std.filter(x => !dbNomi.has(key(x.nome)));
   const tolti = S.articoli.filter(a => !stdNomi.has(key(a.nome)));
   const lotti = S.articoli.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
+  const confs = S.articoli.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
+  const prezzi = S.articoli.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
+  const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
   const fornSeed = {}; std.forEach(x => { if(x.forn === 'Sammarco') fornSeed[key(x.nome)] = x.forn; });
   const cambiaForn = S.articoli.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
-  if(!nuovi.length && !tolti.length && !lotti.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
+  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !riattiva30.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   if(nuovi.length) righe.push('Da aggiungere: ' + nuovi.map(x=>x.nome).join(', '));
   if(tolti.length) righe.push('Da eliminare: ' + tolti.map(a=>a.nome).join(', '));
+  if(riattiva30.length) righe.push('Riattivati gli articoli Sanfelici della 3.0 (li conta la 2.0 nel Magazzino Sanfelici 3.0)');
+  if(prezzi.length) righe.push('Prezzi dai DDT Sanfelici: ' + prezzi.length + ' articoli');
+  if(confs.length) righe.push('Cartoni interi: ' + confs.map(a=>a.nome+' da '+CONF_SEED[a.nome]).join(', '));
   if(lotti.length) righe.push('Ordine fisso: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
   if(cambiaForn.length) righe.push('Passano a Sammarco: ' + cambiaForn.map(a=>a.nome).join(', '));
-  if(sezSede.length) righe.push('Sezioni non usate disattivate per: ' + SEDI.filter(s=>SEZ_SOLO[s.id]).map(s=>s.nome).join(', '));
+  if(sezSede.length) righe.push('Sezioni disattivate: ' + SEDI.flatMap(s => [...new Set(sezSede.filter(a => !sezInSede(a.sezione,s.id) && attivo(a,s.id)).map(a => a.sezione))].map(z => `${z} per ${s.nome}`)).join(', '));
   if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
   const b = db.batch();
   nuovi.forEach(x => { const scs = scorteSeed(x.sc), mxs = scorteSeed(x.mx), dir = SEZ_DIRETTE[x.sez]; const sedi = {};
     SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(x.sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
-    b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
+    b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, conf:CONF_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
   tolti.forEach(a => b.delete(db.collection('articoli').doc(a.id)));
   lotti.forEach(a => b.update(db.collection('articoli').doc(a.id), {lotto: LOTTI_SEED[a.nome]}));
+  riattiva30.forEach(a => b.update(db.collection('articoli').doc(a.id), {[`sedi.${MAG30.sedeScorte}.on`]: true}));
+  prezzi.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_SEED[a.nome], prezzoData: PREZZI_DATA}));
+  confs.forEach(a => b.update(db.collection('articoli').doc(a.id), {conf: CONF_SEED[a.nome]}));
   cambiaForn.forEach(a => b.update(db.collection('articoli').doc(a.id), {fornitore: fornSeed[key(a.nome)]}));
   sezSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!sezInSede(a.sezione,s.id)) u[`sedi.${s.id}.on`] = false; }); if(!tolti.includes(a)) b.update(db.collection('articoli').doc(a.id), u); });
   await b.commit(); toast('Catalogo aggiornato','ok');
@@ -1086,7 +1158,7 @@ async function seedCatalogo(){
   SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => {
     const [nome,u,sc,mx] = item.split(':'); const scs = scorteSeed(sc), mxs = scorteSeed(mx); const dir = SEZ_DIRETTE[sez];
     const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
-    batch.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
+    batch.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[nome.trim()]||0, conf:CONF_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:(u||unit).trim(), ordine:ord++, sedi, diretto: !!dir, reparto: repSeed(sez, nome.trim())});
   }));
   await batch.commit(); toast(`Catalogo caricato: ${ord} articoli`,'ok');
 }
@@ -1160,7 +1232,7 @@ function makeDemo(){
       const dir = SEZ_DIRETTE[sez]; if(dir) SEDI.forEach(s => scs[s.id] = 0);
       const mxs = mx ? scorteSeed(mx) : {}; if(!mx) SEDI.forEach(s => mxs[s.id] = scs[s.id]*2);
       const sedi = {}; SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(sez,s.id), scorta:scs[s.id], max:mxs[s.id]});
-      const id = newId(); _set('articoli', id, {lotto:LOTTI_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
+      const id = newId(); _set('articoli', id, {lotto:LOTTI_SEED[nome.trim()]||0, conf:CONF_SEED[nome.trim()]||0, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(sez,nome.trim())}); arts.push({id, nome:nome.trim(), sezione:sez, fornitore:forn, unita:un, scs, mxs, dir, on:sedi, rep:repSeed(sez,nome.trim())});
     }));
     SEDI.forEach(s => _set('utenti', `tablet-${s.id}@demo.it`, {sede:s.id}));
     _set('config','consegne',{'Sal De Riso':'2026-11-26'});
@@ -1172,7 +1244,7 @@ function makeDemo(){
         REPARTI.forEach(rp => {
         const la = arts.filter(a => a.on[s.id].on && a.rep === rp.id);
         const dettaglio = la.map(a => a.dir ? {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:null, scorta:0, ordine:Math.floor(Math.random()*3), diretto:true}
-          : {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:g[a.id], scorta:a.scs[s.id], max:a.mxs[s.id], ordine:calcOrdine(a.scs[s.id], g[a.id], a.unita, a.mxs[s.id], LOTTI_SEED[a.nome]||0)});
+          : {id:a.id, nome:a.nome, unita:a.unita, sezione:a.sezione, fornitore:a.fornitore, g:g[a.id], scorta:a.scs[s.id], max:a.mxs[s.id], ordine:calcOrdine(a.scs[s.id], g[a.id], a.unita, a.mxs[s.id], LOTTI_SEED[a.nome]||0, CONF_SEED[a.nome]||0)});
         const righe = {}; dettaglio.forEach(r => righe[r.id] = r.diretto ? r.ordine : r.g);
         const chiuso = new Date(d); chiuso.setHours(23, 10 + si*7);
         _set('conteggi', s.id+'_'+data+'_'+rp.id, {sede:s.id, data, reparto:rp.id, stato:'chiuso', operatore:oper[(si+w)%4], righe, creato:chiuso.toISOString(), chiuso:chiuso.toISOString(), dettaglio});
