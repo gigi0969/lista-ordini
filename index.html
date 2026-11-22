@@ -377,12 +377,13 @@ const sezInSede = (sez,sede) => !SEZ_SOLO[sede] || SEZ_SOLO[sede].includes(sez);
    con minimi e massimi della 3.0 e ordine separato (fatturato a Viale Group). La Farina Lucia è comune: si conta solo alla 2.0
    e la fattura si alterna tra 2.0 e 3.0. */
 const MAG30 = {id:'mag30', nome:'Magazzino Sanfelici 3.0', sedeOspite:'gramsci', sedeScorte:'amendola', sezione:'Sanfelici', comuni:['Farina Lucia']};
-const repartiDi = sede => sede === MAG30.sedeOspite ? [...REPARTI, {id:MAG30.id, nome:MAG30.nome}] : REPARTI;
+/* Fuerte: una sola lista con tutto (cucina, bar, vini), così Mammafiore arriva in un unico ordine */
+const repartiDi = sede => soloGiac(sede) ? [{id:'pizzeria', nome:'Giacenza completa'}] : sede === MAG30.sedeOspite ? [...REPARTI, {id:MAG30.id, nome:MAG30.nome}] : REPARTI;
 const sedeScorte = c => c.reparto === MAG30.id ? MAG30.sedeScorte : c.sede;
 const FATT = {gramsci:'TEPE (2.0)', amendola:'Viale Group (3.0)'};
 function artsPer(sede, rep, data){
   if(rep === MAG30.id) return S.articoli.filter(a => a.sezione === MAG30.sezione && !MAG30.comuni.includes(a.nome) && attivo(a, MAG30.sedeScorte) && inGiorno(a,data));
-  return S.articoli.filter(a => attivo(a,sede) && repDi(a)===rep && inGiorno(a,data) && !(sede === MAG30.sedeScorte && a.sezione === MAG30.sezione));
+  return S.articoli.filter(a => attivo(a,sede) && (soloGiac(sede) ? rep === 'pizzeria' : repDi(a)===rep) && inGiorno(a,data) && !(sede === MAG30.sedeScorte && a.sezione === MAG30.sezione));
 }
 const rigaTxt = r => `- ${qtaTxt(r).replace(/ \((.*)\)$/, '')} ${r.nome}${/\(/.test(qtaTxt(r)) ? ' ' + qtaTxt(r).match(/\(.*\)$/)[0] : ''}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
 /* liste con la pizzeria "vera": quelle del magazzino 3.0 contano per la 3.0 */
@@ -959,8 +960,9 @@ function renderChiusoSoloGiac(c){
   S.tieniScroll = S.view === 'conta' && S.ultimoChiuso === c.id; S.ultimoChiuso = c.id;
   const det = c.dettaglio || [], cd = toDate(c.chiuso);
   const contati = det.filter(r => typeof r.g === 'number');
-  const inOrdine = contati.filter(r => r.ordine > 0 || r.inOrdine || isMano(r.id));
-  const altri = contati.filter(r => !inOrdine.includes(r));
+  const inOrdine = det.filter(r => r.inOrdine || (typeof r.g === 'number' && (r.ordine > 0 || isMano(r.id))));
+  const altri = det.filter(r => !inOrdine.includes(r));
+  const gTxt = r => typeof r.g === 'number' ? fmtN(r.g) + ' ' + (r.unita||'') : 'non contato';
   const qtaOpts = r => { const vals = new Set([...Array(31).keys()]); if(isFraz(r.unita) || r.unita === 'Cassa') for(let v = 0.5; v < 10; v++) vals.add(v);
     const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0; if(cf > 1) for(let k = 1; k <= 5; k++) vals.add(cf * k); if(r.ordine > 0) vals.add(r.ordine); return [...vals].sort((a,b)=>a-b); };
   const conForn = inOrdine.filter(r => r.ordine > 0 && fornScelto(r));
@@ -973,12 +975,12 @@ function renderChiusoSoloGiac(c){
   <h2 class="h2">Ordini</h2>
   <p class="small muted">Le quantità proposte vengono da minimi e massimi; i freschi li decidi tu. Per ogni articolo scegli quantità e fornitore dalla tendina (0 = non ordinare).</p>
   <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Da ordinare</th><th>Fornitore</th></tr></thead><tbody>
-  ${inOrdine.map(r => `<tr><td>${esc(r.nome)}${isMano(r.id) ? ' <small class="muted">fresco</small>' : ''}</td><td class="n">${fmtN(r.g)} ${esc(r.unita||'')}</td>
+  ${inOrdine.map(r => `<tr><td>${esc(r.nome)}${isMano(r.id) ? ' <small class="muted">fresco</small>' : ''}</td><td class="n">${esc(gTxt(r))}</td>
     <td class="n"><select class="sel" data-qta="${esc(r.id)}">${qtaOpts(r).map(v => `<option value="${v}"${v === (r.ordine||0) ? ' selected' : ''}>${v === 0 ? '—' : esc(qtaTxt({...r, ordine:v}))}</option>`).join('')}</select></td>
     <td>${fornOpzioni(r).length > 1 ? `<select class="sel" data-forn="${esc(r.id)}"><option value="">scegli…</option>${fornOpzioni(r).map(f => `<option value="${esc(f)}"${fornScelto(r) === f ? ' selected' : ''}>${esc(f)}${prezzoF(r,f) ? ' · ' + eur(prezzoF(r,f)) : ''}</option>`).join('')}</select>` : esc(r.fornitore||'')}</td></tr>`).join('')
     || '<tr><td colspan="4" class="muted">Niente sotto scorta.</td></tr>'}
   </tbody></table></div>
-  ${altri.length ? `<p style="margin:.5rem 0"><select class="sel" id="aggiungi"><option value="">+ aggiungi un altro articolo all'ordine…</option>${altri.map(r => `<option value="${esc(r.id)}">${esc(r.nome)} (giacenza ${fmtN(r.g)})</option>`).join('')}</select></p>` : ''}
+  ${altri.length ? `<p style="margin:.5rem 0"><select class="sel" id="aggiungi"><option value="">+ aggiungi un altro articolo all'ordine…</option>${altri.map(r => `<option value="${esc(r.id)}">${esc(r.nome)} (giacenza ${esc(gTxt(r))})</option>`).join('')}</select></p>` : ''}
   ${senzaForn.length ? `<p class="note warn">Scegli il fornitore per: ${senzaForn.map(r => esc(r.nome)).join(', ')}.</p>` : ''}
   <h2 class="h2">Invia ai fornitori</h2>
   ${perF.length ? `<div class="ordini">${perF.map(([f,list],i) => { const fw = (c.inoltrati||{})[f]; return `<article class="ord"${fw?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${fw ? `<span class="pill ok">Mandato alle ${oraBreve(fw)}</span>` : '<span class="pill wip">Da inoltrare</span>'}</header>
