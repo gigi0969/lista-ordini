@@ -426,7 +426,9 @@ async function route(){
   if(S.admin){ go(S.tab); return; }
   const oggi = ymd(oggiLista()); let data = oggi;
   try{ const qs = await db.collection('conteggi').where('sede','==',S.sede).get();
-    const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-7)).sort((a,b)=>b.data.localeCompare(a.data));
+    const aperte = qs.docs.map(d=>d.data()).filter(d => d.stato !== 'chiuso' && d.data < oggi && d.data >= addGiorni(oggi,-7)
+      /* blocca solo se la lista vecchia contiene davvero qualcosa: aperta per sbaglio o solo col nome non conta */
+      && Object.values(d.righe||{}).some(v => typeof v === 'number' && v > 0)).sort((a,b)=>b.data.localeCompare(a.data));
     S.bloccoRep = {}; aperte.forEach(d => { if(!S.bloccoRep[d.reparto]) S.bloccoRep[d.reparto] = d.data; }); }catch(e){ S.bloccoRep = {}; }
   openSede(S.sede, data);
 }
