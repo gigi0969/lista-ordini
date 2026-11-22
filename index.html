@@ -162,12 +162,12 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 <script>
 /* ============ CONFIGURAZIONE ============ */
 const firebaseConfig = {
-  apiKey: "INSERISCI_API_KEY",
-  authDomain: "giacenze-teperino.firebaseapp.com",
-  projectId: "giacenze-teperino",
-  storageBucket: "giacenze-teperino.appspot.com",
-  messagingSenderId: "INSERISCI",
-  appId: "INSERISCI"
+  apiKey: "AIzaSyB8u_ISw0l47xyZ7m7IM5GW39xSMSyrFwE",
+  authDomain: "lista-teperino.firebaseapp.com",
+  projectId: "lista-teperino",
+  storageBucket: "lista-teperino.firebasestorage.app",
+  messagingSenderId: "266693687320",
+  appId: "1:266693687320:web:183bd17da43333ef486b6d"
 };
 const ADMIN_EMAILS = ['ltepe69@gmail.com'];
 /* Gli ordini vengono mandati a questo numero WhatsApp (titolare), che poi li gira ai fornitori.
@@ -451,7 +451,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v51'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v29'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -1398,7 +1398,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v51';
+  const KEY = 'giacenze-demo-v29';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
