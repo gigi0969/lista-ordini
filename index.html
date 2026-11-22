@@ -59,6 +59,7 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 .chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:6px;padding:.3rem .65rem;font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:600;cursor:pointer}
 .chip b{font-family:'Atkinson Hyperlegible',sans-serif;font-size:.78rem;font-weight:400;color:var(--muted);margin-left:.3rem}
 .chip.full{background:var(--basil-s);border-color:var(--basil)}
+.chip.cur{border-color:var(--ink,#1d2a22);box-shadow:inset 0 -3px 0 var(--ink,#1d2a22)}
 
 .sez{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:1rem;scroll-margin-top:135px;overflow:hidden}
 .sez h2{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--soft)}
@@ -161,12 +162,12 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 <script>
 /* ============ CONFIGURAZIONE ============ */
 const firebaseConfig = {
-  apiKey: "AIzaSyB8u_ISw0l47xyZ7m7IM5GW39xSMSyrFwE",
-  authDomain: "lista-teperino.firebaseapp.com",
-  projectId: "lista-teperino",
-  storageBucket: "lista-teperino.firebasestorage.app",
-  messagingSenderId: "266693687320",
-  appId: "1:266693687320:web:183bd17da43333ef486b6d"
+  apiKey: "INSERISCI_API_KEY",
+  authDomain: "giacenze-teperino.firebaseapp.com",
+  projectId: "giacenze-teperino",
+  storageBucket: "giacenze-teperino.appspot.com",
+  messagingSenderId: "INSERISCI",
+  appId: "INSERISCI"
 };
 const ADMIN_EMAILS = ['ltepe69@gmail.com'];
 /* Gli ordini vengono mandati a questo numero WhatsApp (titolare), che poi li gira ai fornitori.
@@ -197,7 +198,8 @@ const SEDI = [
   {id:'gramsci',      nome:'Teperino 2.0 Gramsci'},
   {id:'amendola',     nome:'Teperino 3.0 Amendola'},
   {id:'formigine',    nome:'Teperino Formigine'},
-  {id:'senzaglutine', nome:'Teperino Senza Glutine'}
+  {id:'senzaglutine', nome:'Teperino Senza Glutine'},
+  {id:'fuerte',       nome:'Teperino Fuerte'}
 ];
 const UNITA = ['PZ','CT','Cassa','KG','LT','CF','Sacco','Latta','Busta','Secchio','Bottiglia'];
 
@@ -244,11 +246,84 @@ const repDi = a => a.reparto || REP_SEZ[a.sezione] || 'sala';
 /* Sezioni in cui il personale scrive direttamente l'ordine (niente giacenza); escludi = sedi dove la sezione non c'è */
 /* Solo queste sezioni si contano e l'ordine lo calcola l'app (min/max); in tutte le altre il personale scrive direttamente quanto ordinare */
 const SEZ_CALCOLATE = ['Sanfelici','Stracci','Liquori','Dolci Sal De Riso'];
+/* ============ TEPERINO FUERTE ============
+   Fuerte conta solo le giacenze: l'ordine lo propone l'app (dove ci sono minimo e massimo) e lo decidi tu.
+   Mammafiore, Comit e SDM Food vendono gli stessi articoli: l'ordine parte su Mammafiore e lo sposti tu sugli altri.
+   Mercadona: spesa fatta da Luigi (pulizia, birre, zucchero, prodotti da supermercato). */
+const SEDI_SEPARATE = ['fuerte'];
+const SEDI_SOLO_GIACENZA = ['fuerte'];
+const soloGiac = sede => SEDI_SOLO_GIACENZA.includes(sede);
+/* sotto l'articolo: tutti i fornitori possibili (Mammafiore / Comit / SDM Food), l'ordine lo assegna Luigi */
+const fornLabel = a => (a.alt||[]).length ? [a.fornitore, ...a.alt].join(' / ') : (a.fornitore||'');
+const TRIO = ['Comit','SDM Food'];
+/* [sezione, fornitore, unità, reparto, alternative, "Nome:unità:minimo:massimo|…"] — minimi e massimi ricavati dallo storico giugno-novembre del file LISTA SPESA */
+const FUERTE_SEED = [
+  ['Latticini e salumi','Mammafiore','PZ','pizzeria',TRIO,'Bufala|Burrata|Stracciatella|Mozzarella|Mozzarella congelata|Provola::4:16|Ricotta::0.5:2|Mascarpone::2:4|Gorgonzola::0.5:1|Grana Padano|Grattugiato|Formaggi per tagliere::0.5:1.5|Bresaola::0.5:1|Coppa::0.5:1|Cotto::0.5:1|Crudo::0.5:1|Mortadella::0.5:1|Nduja::0.5:1|Pancetta::0.5:1|Salame Napoli::0.5:1|Salame piccante::0.5:1|Salsiccia:KG:0.5:1|Speck'],
+  ['Farine e dispensa','Mammafiore','PZ','pizzeria',TRIO,'Farina Caputo::2.5:4|Spolverina::0.5:1|Pelati Gustarosso::7:11|Pelati Bellitalia|Piennolo|Acciughe::0.5:2|Tonno::0.5:1.5|Capperi::0.5:1|Carciofi::0.5:1|Friarielli::0.5:1|Funghi champignon::0.5:2|Funghi porcini::0.5:2|Olive denocciolate::0.5:2|Crema tartufata::2:12|Crema di zucca::1:14|Crema cacio e pepe::1:5|Pesto di pistacchio|Granella di pistacchio::0.5:1|Origano::0.5:1|Peperoncino|Aceto glassa::0.5:2|Taralli::0.5:1|Crocchette::0.5:1.2|Cuoppo::0.5:1|Box pizza::0.5:1|Caffè::0.5:2|Decaffeinato::0.5:1'],
+  ['Farine Apoza','Apoza','PZ','pizzeria',[],'Farina Lucia|Farina Tipo 1::0.5:1|Pizza Plus::1:11'],
+  ['Dolci','Mammafiore','PZ','pizzeria',TRIO,'Babà al rum::1:7|Brownie::0.5:4|Caprese:Fetta:4:4|Pastiera:Fetta:4:4|Tiramisù:Fetta:4:4|Torta al pistacchio:Fetta:4:4|Torta della nonna:Fetta:4:4|Crema di pistacchio'],
+  ['Verdura e frutta','Carmur','PZ','pizzeria',[],'Basilico:Cassa:0.5:1|Rucola:Borsa:0.5:1.5|Melanzane:KG:2:4|Peperoni:KG:3:5|Zucchine:KG:2:5|Carote:KG:3:8|Cipolla rossa:KG:2:6|Insalata cogollos:PZ:2:3|Pepino::0.5:2|Pomodorini:KG:0.5:1|Pomodoro grande:KG:3:6|Limoni::2:9|Lime::1:5|Erba buena::0.5:1|Mele::2:5|Pere::2:5|Arance::4:10'],
+  ['Megahielo','Megahielo','PZ','pizzeria',[],'Ghiaccio:Sacco:4:10|Patatine:KG:3:5'],
+  ['Liquori e vini HGR','HGR','Bottiglia','sala',[],'Amaro Ramazzotti::1|Aperol::2|Rhum Arehucas bianco::1|Rhum Arehucas rosso::1|Batida de coco::1|Baileys::2|Amaro del Capo::1|Brandy 103::1|Campari::1|Cynar::1|Disaronno::1|Fernet Branca::1|Gin Gordon\'s::1|Gin Tanqueray::1|Granatina::1|Grappa morbida::1|Grappa secca::1|Whisky Haig::1|Jägermeister::1|Liquirizia::1|Martini bianco::1|Martini rosso::1|Montenegro::1|Nocino::1|Passito|Rhum Miel::2|Sambuca::1|Vodka::1|Sangria::3|Prosecco Provetto::6|Vino rosato::6|Vino blanco spagnolo::6|Vino tinto spagnolo::6|Latte:PZ:2:4'],
+  ['Vini e birre Mammafiore','Mammafiore','Bottiglia','sala',[],'Limoncino::0.5:1|Prosecco Conca d\'Oro|Chardonnay 1,5 lt::3:6|Chardonnay 0,75 lt::5:10|Montepulciano 1,5 lt::3:7|Montepulciano 0,75 lt::5:6|Birra Ichnusa:Cassa:1:20|Birra gluten free:Cassa'],
+  ['Coca-Cola','Coca-Cola','Cassa','sala',[],'Appetizer::6:24|Coca-Cola::0.5:2|Coca-Cola Zero::1:3|Fanta Limón::0.5:1.8|Fanta Naranja::0.5:2|Nestea limón::0.5:1.5|Nestea mango::0.5:1.5|Succo ananas::0.5:2|Succo mela::0.5:1.3|Succo pesca|Tonica::0.5:1.5|Coca-Cola lattina::0.5:2|Coca-Cola Zero lattina::1:3|Fanta lattina::0.5:1|Sprite::0.5:2'],
+  ['Acqua Firgas','Firgas','Cassa','sala',[],'Acqua frizzante vetro::1.5:3|Acqua naturale vetro::1:4|Boccione acqua impasto:PZ:2:4|Acqua personale gas::2:5|Acqua personale naturale|Acqua 0,50 naturale|Acqua 0,50 gas'],
+  ['Birra Damm','Damm','Cassa','sala',[],'Estrella barile:PZ:0.5:2|Turia barile:PZ:0.5:1.7|Damm Lemon::0.5:2|Damm Lemon Zero::0.5:2|Estrella Damm 0,0::2:2.7'],
+  ['Dishare','Dishare','PZ','sala',[],'Carta mani|Bobine|Carta igienica::2:9|Tovaglioli Cankuro:CT:0.5:1|Tovaglioli piccoli dolci::0.5:1|Pellicola::0.5:1|Alluminio::0.5:1|Contenitori asporto::0.5:1|Carta frittura::0.5:1|Cannucce::0.5:1|Bastoncini frittura::0.5:1'],
+  ['Pulizia','Mercadona','PZ','sala',[],'Aceto bianco::0.5:2|Alcool 70|Brillantante|Candeggina::0.5:1|Detergente spray::0.5:2|Detersivo bagno|Detersivo pavimenti|Detersivo piatti|Disinfettante mani|Guanti bagno|Guanti monouso|Microfibre|Mocio|Pastiglie lavastoviglie::0.5:1|Retine::0.5:1|Sacchi spazzatura::2:3|Sacchi spazzatura bagno::0.5:1|Sapone mani ricarica::0.5:1|Scopa|Sgrassatore K7|Spugnette::0.5:2|WC Net'],
+  ['Cartoleria','Cartoleria Tagoror','PZ','sala',[],'Rotolo POS::16:20:Banca Caixa|Rotolo stampante::8:10|Penne|Buste::2:5'],
+  ['Mercadona','Mercadona','PZ','pizzeria',[],'Wurstel::1:4|Frutti di mare::1:3|Maionese::1:3|Ketchup::2:4|Panna spray::2:3|Ananas in scatola::2:3|Mais::1:5|Lievito::10:17|Cacao in polvere::0.5:1|Marmellata::1:3|Nutella::1:3|Zucchero a velo::0.5:1|Gelato::1:4|Uova|Sale|Olio EVO 1 lt::0.5:1|Olio girasole 5 lt|Latte condensato::0.5:1|Sciroppo caramello::2:3|Sciroppo cioccolato::0.5:1|Sciroppo fragola'],
+  ['Mercadona bar','Mercadona','PZ','sala',[],'Birra 1906:Cassa|Estrella Galicia:Cassa|Birra Tropical:Cassa|Zucchero|Zucchero di canna|Bustine di zucchero|Biscotti']
+];
+const FUERTE_SEZ = FUERTE_SEED.map(x => x[0]);
+/* freschi: niente minimo e massimo, la quantità la scegli tu ogni volta guardando la giacenza */
+const MANO_SEED = ['Mozzarella','Bufala','Burrata','Stracciatella'];
+/* confezioni Fuerte: ghiaccio in borse da 5 sacchi, basilico a mezze casse */
+const FUERTE_CONF = {'Ghiaccio':5, 'Basilico':0.5, 'Provola':16 /* Mammafiore: cartone da 16 pz da 500 g, congelata */,
+  'Bufala':8 /* 125 g x 8 */, 'Pelati Gustarosso':6 /* 2,5 kg x 6 */, 'Babà al rum':12 /* 130 g x 12 */,
+  'Patatine':10 /* Megahielo: papas congeladas 9x9, sempre 10 kg */};
+/* Prezzi Mammafiore dalle fatture FVR26-19210/19917/20178/20632 (prezzo netto dopo sconto, IGIC esclusa), per unità di conteggio */
+const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpone':4.56,'Provola':4.88,'Grattugiato':16.99,
+  'Crema tartufata':10.12,'Crema di zucca':4.87,'Friarielli':5.92,'Funghi champignon':4.96,'Funghi porcini':12.40,'Box pizza':28.42,'Caffè':16.49,
+  'Pelati Gustarosso':5.95,'Piennolo':5.14,'Farina Caputo':37.22,'Limoncino':13.69,'Carciofi':12.84,'Babà al rum':1.70,'Caprese':26.04,'Pastiera':23.21,
+  'Cuoppo':9.35,'Acciughe':18.07,'Montepulciano 0,75 lt':3.64,'Chardonnay 1,5 lt':5.56,'Aceto glassa':4.93,'Birra gluten free':40.76,
+  'Ghiaccio':0.95 /* Megahielo H. 60GR al sacco */,'Patatine':1.84 /* Megahielo al kg */};
+const PREZZI_FUERTE_DATA = '2026-11-19';
+/* Carmur (fatture 03/11 e 20/11/2026), al kg o al pezzo */
+Object.assign(PREZZI_FUERTE, {'Zucchine':3.20,'Melanzane':2.50,'Peperoni':3.80,'Insalata cogollos':1.30,'Pomodoro grande':3.30,'Carote':1.35});
+/* prezzi degli altri fornitori per lo stesso articolo (per unità di conteggio), usati in tendina e nel valore stimato */
+const PREZZI_ALT_FUERTE = {
+  'Comit': {'Crema di zucca':6.50 /* 580 ml */, 'Funghi champignon':7.03 /* lamine 3 kg */, 'Salsiccia':8.66 /* impasto 1 kg congelato */,
+    'Stracciatella':4.71 /* 250 g congelata */, 'Olive denocciolate':12.27 /* 5 kg */, 'Crema cacio e pepe':16.53 /* 560 g, prezzo pieno */,
+    'Mozzarella':19.32 /* tina 2,8 kg a 6,90 €/kg netti */, 'Burrata':2.32 /* 125 g congelata */},
+  'SDM Food': {'Bufala':2.10 /* DOP 125 g */, 'Burrata':2.40 /* Valco 125 g */, 'Ricotta':8.85 /* 1,5 kg */, 'Coppa':22.90 /* al kg */,
+    'Crudo':44.14 /* mattonella circa 2,6 kg a 16,90 €/kg */, 'Pesto di pistacchio':17.90 /* salsa vaso 520 g */}};
+const prezzoF = (r, f) => { const art = S.articoli.find(x => x.id === r.id); const p = (PREZZI_ALT_FUERTE[f]||{})[r.nome];
+  if(p) return p; return art && f === art.fornitore ? prezzoDi(r.id) : 0; };
+/* come si chiama la confezione nell'ordine: "1 Cartone Provola (16 PZ)", "2 Borse Ghiaccio (10 Sacco)" */
+const TORTE_FUERTE = ['Caprese','Pastiera','Tiramisù','Torta al pistacchio','Torta della nonna'];
+const FUERTE_ORD = {'Provola':['Cartone','Cartoni'], 'Ghiaccio':['Borsa','Borse'], 'Bufala':['Cartone','Cartoni'], 'Pelati Gustarosso':['Cartone','Cartoni'], 'Babà al rum':['Cartone','Cartoni']};
+const ORD_SENZA_DETTAGLIO = ['Ghiaccio']; /* nel messaggio solo "2 Borse Ghiaccio" */
+const FUERTE_LOTTO = {'Provola':16 /* sotto scorta: sempre 1 cartone */,
+  /* torte intere (le tagliate voi): i ragazzi contano le fette; sotto il minimo si ordina 1 torta intera */
+  'Caprese':1, 'Pastiera':1, 'Tiramisù':1, 'Torta al pistacchio':1, 'Torta della nonna':1};
+const qtaTxt = r => { const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0, ou = art && art.ordUnita;
+  if(art && art.ordTorte) return `${fmtN(r.ordine)} ${r.ordine === 1 ? 'Torta' : 'Torte'}`;
+  if(ou && cf > 1 && r.ordine % cf === 0){ const n = r.ordine / cf; return `${fmtN(n)} ${n === 1 ? ou[0] : ou[1]}` + (ORD_SENZA_DETTAGLIO.includes(r.nome) ? '' : ` (${fmtN(r.ordine)} ${r.unita||''})`); }
+  return `${fmtN(r.ordine)} ${r.unita === 'Torta' && r.ordine !== 1 ? 'Torte' : (r.unita||'')}`; };
+const isMano = id => { const a = S.articoli.find(x => x.id === id); return !!(a && a.mano); };
+/* giorni in cui si conta (0 = domenica, 2 = martedì): il giorno prima delle consegne */
+const GIORNI_FUERTE = {'Mammafiore':[0,2], 'Comit':[0,2], 'Carmur':[0,2], 'Megahielo':[0,2], 'SDM Food':[0,2], 'Apoza':[0,2], 'HGR':[2], 'Damm':[2], 'Coca-Cola':[0], 'Firgas':[0], 'Dishare':[0], 'Mercadona':[0,2], 'Cartoleria Tagoror':[0], 'Banca Caixa':[0], 'Da definire':[0]};
+function fuerteStd(){ const out = [];
+  FUERTE_SEED.forEach(([sez,forn,unit,rep,alt,list]) => list.split('|').forEach(item => { const [nome,u,st,mx,fo] = item.split(':');
+    out.push({sez, forn:(fo||forn).trim(), unit:(u||unit).trim(), nome:nome.trim(), rep, alt, stock:Number(st)||0, max:Number(mx)||Number(st)||0, sedeSola:'fuerte'}); }));
+  return out; }
+SEZ_CALCOLATE.push(...FUERTE_SEZ);
 const SEZ_DIRETTE = new Proxy({}, {get: (o,sez) => typeof sez === 'string' && !SEZ_CALCOLATE.includes(sez) ? {escludi:[]} : undefined});
 function scorteSeed(sc){ const v = (sc||'').split(','); const o = {}; SEDI.forEach((s,i) => o[s.id] = Number(v[i]) || 0); return o; }
-const sezIdx = s => { const i = SEZ_ORD.indexOf(s); return i < 0 ? 999 : i; };
+const sezIdx = s => { const i = SEZ_ORD.indexOf(s); if(i >= 0) return i; const j = FUERTE_SEZ.indexOf(s); return j < 0 ? 999 : 500 + j; };
 const sortArt = (a,b) => (repDi(a)===repDi(b) ? 0 : repDi(a)==='pizzeria' ? -1 : 1) || sezIdx(a.sezione)-sezIdx(b.sezione) || (a.sezione||'').localeCompare(b.sezione||'') || (a.ordine??0)-(b.ordine??0) || a.nome.localeCompare(b.nome);
-const attivo = (a,sede) => { const s = a.sedi && a.sedi[sede]; return !s || s.on !== false; };
+const attivo = (a,sede) => { if(a.sedeSola ? a.sedeSola !== sede : SEDI_SEPARATE.includes(sede)) return false; const s = a.sedi && a.sedi[sede]; return !s || s.on !== false; };
 const maxDi = (a,sede) => { const s = a.sedi && a.sedi[sede]; return s && Number(s.max) > 0 ? Number(s.max) : 0; };
 const scortaDi = (a,sede) => { const s = a.sedi && a.sedi[sede]; return s && Number(s.scorta) > 0 ? Number(s.scorta) : 0; };
 const isFraz = u => u === 'KG' || u === 'LT';
@@ -262,7 +337,7 @@ function calcOrdine(min,g,u,max,lotto,conf){
   const target = max > 0 ? Math.max(max, soglia) : soglia; const o = target - g; if(o <= 0) return 0;
   if(lotto > 0) return lotto;
   /* confezione: si ordinano solo cartoni interi (es. tonno 12, porcini 6), arrotondando per eccesso */
-  if(conf > 1) return Math.ceil(o / conf) * conf;
+  if(conf > 0 && conf !== 1) return Math.round(Math.ceil(o / conf - 1e-9) * conf * 10) / 10;
   return isFraz(u) ? r1(o) : Math.ceil(o);
 }
 const LOTTI_SEED = {'Farina Lucia':40, 'Pizza Plus':10, 'Pelati S.Felici':20, 'Stracci':10, 'Legna':40};
@@ -309,7 +384,7 @@ function artsPer(sede, rep, data){
   if(rep === MAG30.id) return S.articoli.filter(a => a.sezione === MAG30.sezione && !MAG30.comuni.includes(a.nome) && attivo(a, MAG30.sedeScorte) && inGiorno(a,data));
   return S.articoli.filter(a => attivo(a,sede) && repDi(a)===rep && inGiorno(a,data) && !(sede === MAG30.sedeScorte && a.sezione === MAG30.sezione));
 }
-const rigaTxt = r => `- ${fmtN(r.ordine)} ${r.unita} ${r.nome}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
+const rigaTxt = r => `- ${qtaTxt(r).replace(/ \((.*)\)$/, '')} ${r.nome}${/\(/.test(qtaTxt(r)) ? ' ' + qtaTxt(r).match(/\(.*\)$/)[0] : ''}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
 /* liste con la pizzeria "vera": quelle del magazzino 3.0 contano per la 3.0 */
 async function caricaListe(sede){
   const q = (sede === 'tutte' || sede === MAG30.sedeScorte || sede === MAG30.sedeOspite) ? db.collection('conteggi') : db.collection('conteggi').where('sede','==',sede);
@@ -319,8 +394,9 @@ async function caricaListe(sede){
 /* Fornitori alternativi: per questi articoli, in 2.0 e 3.0, scegli tu a chi mandare l'ordine */
 const ALT_FORN = {'Pancetta al pepe':['Villani'], 'Ventricina':['Villani'], 'Capocollo Martina Franca':['Villani']};
 const ALT_SEDI = ['gramsci','amendola'];
-const altDi = (r,c) => { if(!ALT_FORN[r.nome] || !ALT_SEDI.includes(c.sede)) return [];
-  const base = r.fornOrig || r.fornitore; return [base, ...ALT_FORN[r.nome]].filter(f => f !== r.fornitore); };
+const altDi = (r,c) => { const art = S.articoli.find(x => x.id === r.id);
+  const alt = art && art.sedeSola && (art.alt||[]).length ? art.alt : (ALT_FORN[r.nome] && ALT_SEDI.includes(c.sede) ? ALT_FORN[r.nome] : null);
+  if(!alt) return []; const base = r.fornOrig || r.fornitore; return [base, ...alt].filter((f,i,arr) => f !== r.fornitore && arr.indexOf(f) === i); };
 const isDir = a => !!a.diretto && !((S.impostazioni||{}).giacenzaAlcolici && SEZ_ALCOLICI.includes(a.sezione));
 /* Fornitori a consegna programmata (non ogni settimana): compaiono solo nella lista che precede la prossima consegna, impostata dal titolare */
 const FORNITORI_PROGRAMMATI = ['Sal De Riso'];
@@ -330,7 +406,7 @@ const addGiorni = (ds,n) => { const d = new Date(ds+'T12:00:00'); d.setDate(d.ge
 /* Sal De Riso: compare nelle liste dei 7 giorni prima della consegna, finché non è stato ordinato */
 const finestraProg = d => [addGiorni(d,-7), addGiorni(d,-1)];
 const inGiorno = (a,data) => {
-  const g = GIORNI_FORNITORE[a.fornitore]; if(g && !g.includes(new Date(data+'T12:00:00').getDay())) return false;
+  const g = (a.sedeSola === 'fuerte' ? GIORNI_FUERTE : GIORNI_FORNITORE)[a.fornitore]; if(g && !g.includes(new Date(data+'T12:00:00').getDay())) return false;
   if(FORNITORI_PROGRAMMATI.includes(a.fornitore)){ const d = (S.consegne||{})[a.fornitore]; if(!d) return true; const [da,a2] = finestraProg(d); return data >= da && data <= a2 && !(S.progOrdinati||{})[a.fornitore]; }
   return true;
 };
@@ -360,7 +436,7 @@ function ask(msg, conInput, valore){
 const askText = (msg, valore) => ask(msg, true, valore);
 function closeModal(){ const m=$('#modal'); m.hidden=true; m.innerHTML=''; }
 const main = () => $('#main');
-function view(name,html,keepScroll){ S.view=name; const m=main(); m.onclick=null; m.oninput=null; m.onchange=null; m.innerHTML=html; if(!keepScroll) window.scrollTo(0,0); }
+function view(name,html,keepScroll){ S.view=name; const m=main(); m.onclick=null; m.oninput=null; m.onchange=null; m.innerHTML=html; if(!keepScroll && !S.tieniScroll) window.scrollTo(0,0); S.tieniScroll = false; }
 
 /* ============ ACCESSO ============ */
 function renderLogin(){
@@ -375,7 +451,7 @@ function renderLogin(){
       ${SEDI.map(s=>`<button class="btn" data-demo="tablet-${s.id}@demo.it">Entra come tablet ${esc(s.nome)}</button>`).join('')}
       <button class="link" id="dreset" style="margin-top:.6rem">Ricomincia la prova da zero</button></div>`);
     app.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => auth.signInWithEmailAndPassword(b.dataset.demo,'demo'));
-    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v29'); location.reload(); } };
+    $('#dreset').onclick = async () => { if(await ask('Cancellare i dati di prova?')){ localStorage.removeItem('giacenze-demo-v51'); location.reload(); } };
   }
   $('#lf').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
     try{ await auth.signInWithEmailAndPassword($('#le').value.trim(), $('#lp').value); }
@@ -474,11 +550,11 @@ async function openSede(sede,data){
 }
 function statoConta(sn, sede, rep, data, altroSn){
   const gArts = artsPer(sede, rep, data).filter(a => !isDir(a));
-  if(!sn.exists) return {stato:'Da fare', cls:'todo', info: gArts.length ? `${gArts.length} articoli da contare` : 'Solo ordini, niente da contare'};
+  if(!sn.exists) return {stato:'Da fare', cls:'todo', info: gArts.length ? `${gArts.length} articoli da contare` : soloGiac(sede) ? 'Oggi niente da contare' : 'Solo ordini, niente da contare'};
   const c = sn.data();
   if(c.stato==='chiuso'){ const a = altroSn && altroSn.exists ? altroSn.data() : null, m = fornitoriDaInviare(c, a), w = fornitoriInAttesa(c, a);
     const an = repNome((REPARTI.find(r => r.id !== rep) || REPARTI[0]).id);
-    return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info:`${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}${w.length ? ` · ${w.map(esc).join(', ')} lo manda ${an}` : ''}`}; }
+    return {stato: m.length ? 'Chiusa, ordini non inviati' : 'Chiusa', cls: m.length ? 'wip' : 'ok', info: soloGiac(sede) ? `${esc(c.operatore||'')}, giacenza salvata (${(c.dettaglio||[]).filter(r => typeof r.g === 'number').length} articoli)` : `${esc(c.operatore||'')}, ${(c.dettaglio||[]).filter(r=>r.ordine>0).length} articoli da ordinare${m.length ? ` · non inviati: ${m.map(esc).join(', ')}` : ''}${w.length ? ` · ${w.map(esc).join(', ')} lo manda ${an}` : ''}`}; }
   return {stato:'In corso', cls:'wip', info: gArts.length ? `${gArts.filter(a => typeof (c.righe||{})[a.id]==='number').length} di ${gArts.length} contati` : 'Ordini in compilazione'};
 }
 
@@ -523,7 +599,7 @@ function rowHtml(a,v){
   const done = typeof v === 'number';
   const t = isDir(a) && S.abituali ? S.abituali[a.id] : 0, an = insolito(a,v);
   return `<div class="row${done?' done':''}${an?' anom':''}" data-id="${a.id}" data-n="${esc(a.nome.toLowerCase())}"${isDir(a)?' data-dir':''}>
-    <div class="r-name">${esc(a.nome)}<small>${esc(a.fornitore||'')}</small>${t ? `<span class="tip">${an?'Insolito: di solito':'Di solito'} ${fmtN(t)} ${esc(a.unita||'')}</span>` : ''}</div>
+    <div class="r-name">${esc(a.nome)}<small>${esc(fornLabel(a))}</small>${t ? `<span class="tip">${an?'Insolito: di solito':'Di solito'} ${fmtN(t)} ${esc(a.unita||'')}</span>` : ''}</div>
     <div class="stepper"><button type="button" data-act="-" aria-label="Meno">−</button><input inputmode="decimal" autocomplete="off" value="${done?fmtN(v):''}" aria-label="${isDir(a)?'Da ordinare':'Giacenza'} ${esc(a.nome)}"><button type="button" data-act="+" aria-label="Più">+</button></div>
     <span class="u">${esc(a.unita||'')}</span></div>`;
 }
@@ -558,6 +634,12 @@ function renderConta(){
   lista.addEventListener('focusin', e => { if(e.target.tagName==='INPUT') e.target.select(); });
   $('#oper').oninput = e => { c.operatore = e.target.value; queueSave(); };
   $('.chips').onclick = e => { const b = e.target.closest('[data-go]'); if(b) $('#sez-'+b.dataset.go).scrollIntoView({behavior:'smooth',block:'start'}); };
+  /* sezione che stai guardando: bordo scuro sulla sua etichetta (il verde vuol dire "sezione completa") */
+  const segnaCorrente = () => { if(S.view !== 'conta' || !$('.chips')) return; const top = ($('.rail') ? $('.rail').getBoundingClientRect().bottom : 0) + 10;
+    let cur = null; document.querySelectorAll('[id^="sez-"]').forEach(sec => { if(sec.getBoundingClientRect().top <= top + 40) cur = sec.id.slice(4); });
+    if(cur === null) cur = '0'; document.querySelectorAll('.chip').forEach(ch => ch.classList.toggle('cur', ch.dataset.go === cur));
+    const a = $('#chip-'+cur); if(a && a.scrollIntoView) { const ch = $('.chips'), r = a.getBoundingClientRect(), rc = ch.getBoundingClientRect(); if(r.left < rc.left || r.right > rc.right) ch.scrollLeft += r.left - rc.left - 20; } };
+  window.onscroll = segnaCorrente; segnaCorrente();
   $('#q').oninput = e => {
     const q = e.target.value.trim().toLowerCase();
     document.querySelectorAll('#lista .sez').forEach(sec => { let any=false;
@@ -725,7 +807,23 @@ function righeAltro(c,f,a = altroDoc(c)){
   if(!S.admin && inAttesa(c,f,a)) return [];
   return righeF(a,f);
 }
+/* fornitori a cui l'ordine va scritto in spagnolo */
+const FORN_ES = ['Dishare','Carmur'];
+const NOMI_ES = {'Carta mani':'Papel secamanos','Bobine':'Bobinas de papel','Carta igienica':'Papel higiénico','Tovaglioli Cankuro':'Servilletas Cankuro',
+  'Tovaglioli piccoli dolci':'Servilletas pequeñas (postres)','Pellicola':'Film transparente','Alluminio':'Papel de aluminio','Contenitori asporto':'Envases para llevar',
+  'Carta frittura':'Papel para fritos','Cannucce':'Pajitas','Bastoncini frittura':'Palillos para fritos',
+  'Basilico':'Albahaca','Rucola':'Rúcula','Melanzane':'Berenjenas','Peperoni':'Pimientos','Zucchine':'Calabacines','Carote':'Zanahorias',
+  'Cipolla rossa':'Cebolla morada','Insalata cogollos':'Cogollos','Pepino':'Pepino','Pomodorini':'Tomates cherry','Pomodoro grande':'Tomate grande',
+  'Limoni':'Limones','Lime':'Limas','Erba buena':'Hierbabuena','Mele':'Manzanas','Pere':'Peras','Arance':'Naranjas'};
+const UNITA_ES = {'Torta':['tarta','tartas'],'Fetta':['porción','porciones'],'PZ':['unidad','unidades'],'CT':['caja','cajas'],'Cassa':['caja','cajas'],'KG':['kg','kg'],'Borsa':['bolsa','bolsas'],'Sacco':['saco','sacos'],'Bottiglia':['botella','botellas']};
+const GIORNI_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+function testoEs(c,f,list){ const d = new Date(c.data + 'T12:00:00');
+  return `*PEDIDO ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n${GIORNI_ES[d.getDay()]} ${fmt(c.data)}\n\n` + list.map(r => { const u = UNITA_ES[r.unita] || [r.unita, r.unita];
+    const q = r.ordine === 0.5 && u[0] !== 'kg' ? `media ${u[0]}` : `${fmtN(r.ordine)} ${r.ordine === 1 ? u[0] : u[1]}`;
+    return `- ${q} ${u[0] === 'kg' ? 'de ' : ''}${NOMI_ES[r.nome] || r.nome}`; }).join('\n') + '\n\nGracias';
+}
 function testoFornitore(c,f,list){ const al = righeAltro(c,f);
+  if(S.admin && FORN_ES.includes(f)) return testoEs(c,f,list);
   if(!S.admin && !al.length) return testoOrdine(c,f,list);
   const sez = [...groupBy([...list, ...al], r => r.sezione || 'Altro')];
   const nomeS = c.reparto === MAG30.id ? `${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : sedeNome(c.sede);
@@ -735,7 +833,7 @@ function testoFornitore(c,f,list){ const al = righeAltro(c,f);
 const STATI_DAL = '2026-11-09';
 const conStati = c => (c.data||'') >= STATI_DAL;
 function fornitoriDaInviare(c, a = altroDoc(c)){
-  if(!conStati(c)) return [];
+  if(!conStati(c) || soloGiac(c.sede)) return [];
   const forn = new Set((c.dettaglio||[]).filter(r => r.ordine > 0 && !r.inviato).map(r => r.fornitore || 'Senza fornitore'));
   FORN_UNICI.forEach(f => { if(a && a.stato === 'chiuso' && !inviatoF(a,f) && righeF(a,f).length && !inAttesa(c,f,a)) forn.add(f); });
   return [...forn].filter(f => !inviatoF(c,f) && !inAttesa(c,f,a));
@@ -753,8 +851,17 @@ const oraBreve = iso => { const d = new Date(iso); return d.toLocaleTimeString('
 
 function renderChiuso(){
   const c = S.conta, det = c.dettaglio || [];
+  /* stessa lista ridisegnata dopo una scelta: resta dove eri, non tornare in cima */
+  S.tieniScroll = S.view === 'conta' && S.ultimoChiuso === c.id; S.ultimoChiuso = c.id;
+  if(S.admin && soloGiac(c.sede)) return renderChiusoSoloGiac(c);
+  if(!S.admin && soloGiac(c.sede)){ const n = det.filter(r => typeof r.g === 'number').length;
+    view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+      <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore||'')}</p></div></div>
+      <div class="note" style="background:var(--basil-s,#e6f0e6);font-weight:700">Giacenza salvata: ${n} articoli contati. Grazie! Gli ordini li fa Luigi.</div>`);
+    main().onclick = e => { if(e.target.closest('[data-sedeback]')) openSede(c.sede, c.data); }; return; }
   const ord = det.filter(r => r.ordine > 0);
-  const senza = det.filter(r => !r.diretto && !(r.scorta > 0) && !(r.max > 0)).length;
+  const senza = det.filter(r => !r.diretto && !(r.scorta > 0) && !(r.max > 0) && !isMano(r.id)).length;
+  const mano = S.admin ? det.filter(r => isMano(r.id) && typeof r.g === 'number') : [];
   const cd = toDate(c.chiuso);
   /* un solo ordine per fornitore; "già inviato" solo se tutte le sue righe erano state inviate in anticipo */
   const gm = new Map(); ord.forEach(r => { const k = r.fornitore||'Senza fornitore'; if(!gm.has(k)) gm.set(k,[]); gm.get(k).push(r); });
@@ -767,12 +874,17 @@ function renderChiuso(){
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
     ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
   ${S.admin && senza ? `<p class="note warn">${senza} articoli non hanno minimo né massimo per questa pizzeria e non generano ordini. Impostali in Catalogo e scorte.</p>` : ''}
+  ${mano.length ? `<section class="card" style="padding:.8rem 1rem;margin:.6rem 0"><h3 style="margin:0 0 .4rem">Freschi: decidi tu quanto ordinare</h3>
+    ${mano.map(r => `<div class="row" style="display:flex;gap:.6rem;align-items:center;padding:.3rem 0"><span style="flex:1">${esc(r.nome)} <small class="muted">giacenza ${fmtN(r.g)} ${esc(r.unita||'')}</small></span>
+      <input data-mano="${esc(r.id)}" inputmode="decimal" placeholder="da ordinare" value="${r.ordine > 0 ? fmtN(r.ordine) : ''}" style="width:7rem"></div>`).join('')}
+    <p class="small muted" style="margin:.4rem 0 0">Scrivi la quantità: l'articolo entra nell'ordine del suo fornitore qui sotto. Vuoto o 0 = non ordinare.</p></section>` : ''}
   <h2 class="h2">Ordini da inviare</h2>
   ${!conStati(c) ? '' : (() => { const m = fornitoriDaInviare(c); return m.length
       ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Il locale non ti ha ancora inviato' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
+      : soloGiac(c.sede) ? (groups.length ? `<p class="note">Ordine proposto dall'app in base a minimi e massimi: scegli il fornitore, togli quello che non serve e inoltra.</p>` : '')
       : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? 'Il locale ti ha inviato tutti gli ordini.' : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw, att = !fatto && inAttesa(c,f,altroDoc(c)); return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
-      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
+      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : soloGiac(c.sede) ? `<span class="pill wip">Da decidere</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:att?`<span class="pill wip">Lo manda ${esc(an)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
     <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}${S.admin && !fw ? ` <button class="link small" data-togli="${esc(r.id)}" style="color:var(--tom)">✕ non ordinare</button>` : ''}</li>`).join('')}</ul>
     ${S.admin ? (() => { const t = (c.dettaglio||[]).filter(r => r.tolto && (r.fornitore||'Senza fornitore') === f); return t.length ? `<p class="small muted" style="margin:.3rem 0">Tolti da te: ${t.map(r => `${esc(r.nome)} (${fmtN(r.tolto)}) <button class="link small" data-rimetti="${esc(r.id)}">rimetti</button>`).join(', ')}</p>` : ''; })() : ''}
@@ -790,6 +902,11 @@ function renderChiuso(){
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
+  main().querySelectorAll('[data-mano]').forEach(inp => inp.onchange = async () => {
+    const r = (c.dettaglio||[]).find(x => x.id === inp.dataset.mano); if(!r) return;
+    const v = Math.max(0, parseFloat((inp.value||'').replace(',','.')) || 0); r.ordine = v; delete r.tolto;
+    try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); }
+    renderChiuso(); });
   main().onclick = async e => {
     const tg = e.target.closest('[data-togli]'), rm = e.target.closest('[data-rimetti]');
     if(tg || rm){ const r = (c.dettaglio||[]).find(x => x.id === (tg||rm).dataset[tg ? 'togli' : 'rimetti']); if(!r) return;
@@ -831,6 +948,68 @@ function renderChiuso(){
   }
 }
 
+/* ============ FUERTE (solo giacenze): l'ordine lo componi tu ============
+   Una sola tabella "Ordini": per ogni articolo scegli dalla tendina quantità e fornitore, poi inoltri fornitore per fornitore. */
+/* fornitore già scelto nella tendina: Mammafiore, tranne questi che di solito prendi da Comit (si può sempre cambiare) */
+const DEFAULT_COMIT = ['Cotto','Mozzarella','Torta al pistacchio','Bufala','Burrata','Funghi champignon','Crema di zucca','Pesto di pistacchio','Granella di pistacchio'];
+const fornScelto = r => { const art = S.articoli.find(x => x.id === r.id); const alt = art && (art.alt||[]).length;
+  return alt ? (r.fornScelto || (DEFAULT_COMIT.includes(r.nome) ? 'Comit' : art.fornitore) || '') : (r.fornitore || ''); };
+const fornOpzioni = r => { const art = S.articoli.find(x => x.id === r.id); return art && (art.alt||[]).length ? [art.fornitore, ...art.alt] : [r.fornitore]; };
+function renderChiusoSoloGiac(c){
+  S.tieniScroll = S.view === 'conta' && S.ultimoChiuso === c.id; S.ultimoChiuso = c.id;
+  const det = c.dettaglio || [], cd = toDate(c.chiuso);
+  const contati = det.filter(r => typeof r.g === 'number');
+  const inOrdine = contati.filter(r => r.ordine > 0 || r.inOrdine || isMano(r.id));
+  const altri = contati.filter(r => !inOrdine.includes(r));
+  const qtaOpts = r => { const vals = new Set([...Array(31).keys()]); if(isFraz(r.unita) || r.unita === 'Cassa') for(let v = 0.5; v < 10; v++) vals.add(v);
+    const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0; if(cf > 1) for(let k = 1; k <= 5; k++) vals.add(cf * k); if(r.ordine > 0) vals.add(r.ordine); return [...vals].sort((a,b)=>a-b); };
+  const conForn = inOrdine.filter(r => r.ordine > 0 && fornScelto(r));
+  const senzaForn = inOrdine.filter(r => r.ordine > 0 && !fornScelto(r));
+  const perF = [...groupBy(conForn, r => fornScelto(r))].sort((a,b)=>a[0].localeCompare(b[0]));
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
+    <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
+    <div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div></div>
+  <h2 class="h2">Ordini</h2>
+  <p class="small muted">Le quantità proposte vengono da minimi e massimi; i freschi li decidi tu. Per ogni articolo scegli quantità e fornitore dalla tendina (0 = non ordinare).</p>
+  <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th><th class="n">Giacenza</th><th class="n">Da ordinare</th><th>Fornitore</th></tr></thead><tbody>
+  ${inOrdine.map(r => `<tr><td>${esc(r.nome)}${isMano(r.id) ? ' <small class="muted">fresco</small>' : ''}</td><td class="n">${fmtN(r.g)} ${esc(r.unita||'')}</td>
+    <td class="n"><select class="sel" data-qta="${esc(r.id)}">${qtaOpts(r).map(v => `<option value="${v}"${v === (r.ordine||0) ? ' selected' : ''}>${v === 0 ? '—' : esc(qtaTxt({...r, ordine:v}))}</option>`).join('')}</select></td>
+    <td>${fornOpzioni(r).length > 1 ? `<select class="sel" data-forn="${esc(r.id)}"><option value="">scegli…</option>${fornOpzioni(r).map(f => `<option value="${esc(f)}"${fornScelto(r) === f ? ' selected' : ''}>${esc(f)}${prezzoF(r,f) ? ' · ' + eur(prezzoF(r,f)) : ''}</option>`).join('')}</select>` : esc(r.fornitore||'')}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="muted">Niente sotto scorta.</td></tr>'}
+  </tbody></table></div>
+  ${altri.length ? `<p style="margin:.5rem 0"><select class="sel" id="aggiungi"><option value="">+ aggiungi un altro articolo all'ordine…</option>${altri.map(r => `<option value="${esc(r.id)}">${esc(r.nome)} (giacenza ${fmtN(r.g)})</option>`).join('')}</select></p>` : ''}
+  ${senzaForn.length ? `<p class="note warn">Scegli il fornitore per: ${senzaForn.map(r => esc(r.nome)).join(', ')}.</p>` : ''}
+  <h2 class="h2">Invia ai fornitori</h2>
+  ${perF.length ? `<div class="ordini">${perF.map(([f,list],i) => { const fw = (c.inoltrati||{})[f]; return `<article class="ord"${fw?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${fw ? `<span class="pill ok">Mandato alle ${oraBreve(fw)}</span>` : '<span class="pill wip">Da inoltrare</span>'}</header>
+    <ul>${list.map(r => `<li><b>${esc(qtaTxt(r))}</b>${esc(r.nome)}</li>`).join('')}</ul>
+    ${(() => { const cp = list.filter(r => prezzoF(r,f) > 0); if(!cp.length) return ''; const tot = cp.reduce((t,r) => t + r.ordine * prezzoF(r,f), 0);
+      return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${cp.length < list.length ? ` <span class="muted">(${list.length - cp.length} senza prezzo)</span>` : ''}</p>`; })()}
+    <div class="ord-acts"><button class="btn primary" data-inv="${i}">${fw ? 'Inoltra di nuovo' : 'Inoltra a ' + esc(f)}</button><button class="btn" data-cp="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
+    : '<p class="empty">Ancora nessun ordine pronto: scegli quantità e fornitore qui sopra.</p>'}
+  <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
+    <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th></tr></thead>
+    <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="4">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
+  const salva = async () => { try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); } renderChiusoSoloGiac(c); };
+  const riga = id => (c.dettaglio||[]).find(x => x.id === id);
+  main().querySelectorAll('[data-qta]').forEach(sel => sel.onchange = () => { const r = riga(sel.dataset.qta); if(!r) return; r.ordine = Number(sel.value) || 0; r.inOrdine = true; delete r.tolto; salva(); });
+  main().querySelectorAll('[data-forn]').forEach(sel => sel.onchange = () => { const r = riga(sel.dataset.forn); if(!r) return; if(sel.value) r.fornScelto = sel.value; else delete r.fornScelto; salva(); });
+  const ag = $('#aggiungi'); if(ag) ag.onchange = () => { const r = riga(ag.value); if(!r) return; r.inOrdine = true; salva(); };
+  main().onclick = async e => {
+    if(e.target.closest('[data-sedeback]')){ openSede(c.sede, c.data); return; }
+    const iv = e.target.closest('[data-inv]'), cp = e.target.closest('[data-cp]'); if(!iv && !cp) return;
+    const [f,list] = perF[+(iv||cp).dataset[iv ? 'inv' : 'cp']]; const t = testoFornitore(c,f,list);
+    if(cp){ navigator.clipboard.writeText(t).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); return; }
+    const segna = async () => { c.inoltrati = {...(c.inoltrati||{}), [f]: new Date().toISOString()}; try{ await db.collection('conteggi').doc(c.id).update({inoltrati: c.inoltrati}); }catch(err){} if(S.conta === c) renderChiusoSoloGiac(c); };
+    if(navigator.share){ try{ await navigator.share({text: t}); await segna(); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
+    await segna(); location.href = 'https://wa.me/?text=' + encodeURIComponent(t); };
+  $('#csv').onclick = () => exportCSV(c);
+  $('#riapri').onclick = async () => { if(!await ask('Riaprire la lista? Il tablet potrà modificarla di nuovo.')) return;
+    await db.collection('conteggi').doc(c.id).update({stato:'bozza', dettaglio:FV.delete(), chiuso:FV.delete(), inviatiWa:FV.delete(), inoltrati:FV.delete()}); openConta(c.sede,c.data,c.reparto); };
+  $('#elim').onclick = async () => { if(!await ask('Eliminare definitivamente questa lista?')) return;
+    await db.collection('conteggi').doc(c.id).delete(); toast('Lista eliminata','ok'); openSede(c.sede,c.data); };
+}
+
 function exportCSV(c){
   const rows = [['Pizzeria','Reparto','Data','Sezione','Fornitore','Articolo','Unità','Giacenza','Minimo','Massimo','Ordine']]
     .concat((c.dettaglio||[]).map(r => [sedeNome(c.sede), repNome(c.reparto), fmt(c.data), r.sezione, r.fornitore, r.nome, r.unita, r.diretto?'ordine diretto':fmtN(r.g), r.scorta>0?fmtN(r.scorta):'', r.max>0?fmtN(r.max):'', r.ordine>0?fmtN(r.ordine):'']));
@@ -851,15 +1030,15 @@ async function renderMagazzino(){
   let docs;
   try{ docs = await caricaListe(sede); }
   catch(e){ $('#mb').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
-  if(S.view!=='magazzino') return;
+  if(S.view!=='magazzino' || sedeAttiva()!==sede) return;
   const perData = {};
   docs.filter(d => d.stato==='chiuso' && d.dettaglio).forEach(d => d.dettaglio.forEach(r => {
-    if(!(MAG_FORN.includes(r.fornitore) || r.sezione === 'Liquori') || r.diretto || typeof r.g !== 'number') return;
+    if(!(soloGiac(sede) || MAG_FORN.includes(r.fornitore) || r.sezione === 'Liquori') || r.diretto || typeof r.g !== 'number') return;
     (perData[d.data] = perData[d.data] || {})[r.id] = r; }));
   const date = Object.keys(perData).sort().slice(-n);
   if(!date.length){ $('#mb').innerHTML = '<p class="empty">Nessuna giacenza Sanfelici chiusa per questa pizzeria.</p>'; $('#mcsv').onclick = null; return; }
   const ids = [], nomi = {};
-  S.articoli.filter(a => MAG_FORN.includes(a.fornitore) && !isDir(a) && attivo(a,sede)).forEach(a => { ids.push(a.id); nomi[a.id] = a; });
+  S.articoli.filter(a => (soloGiac(sede) || MAG_FORN.includes(a.fornitore)) && !isDir(a) && attivo(a,sede)).forEach(a => { ids.push(a.id); nomi[a.id] = a; });
   date.forEach(d => Object.values(perData[d]).forEach(r => { if(!nomi[r.id]){ ids.push(r.id); nomi[r.id] = {nome:r.nome, unita:r.unita, sezione:r.sezione}; } }));
   const cella = v => v > 0 ? fmtN(v) : '–';
   /* valore in € (prezzi attuali del catalogo) */
@@ -1029,7 +1208,7 @@ function catRow(a,sede){
   const on = p.on !== undefined ? p.on : s.on !== false;
   const sc = p.scorta !== undefined ? p.scorta : (Number(s.scorta) > 0 ? Number(s.scorta) : null);
   const mx = p.max !== undefined ? p.max : (Number(s.max) > 0 ? Number(s.max) : null);
-  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(a.fornitore||'')}, ${esc(a.unita||'')}${a.lotto>0?`, ordine fisso ${a.lotto}`:''}${a.conf>1?`, cartone da ${a.conf}`:''}${a.prezzo>0?`, ${eur(a.prezzo)}${a.prezzoPrec>0&&a.prezzoPrec!==a.prezzo?` <b style="color:${a.prezzo>a.prezzoPrec?'var(--tom)':'inherit'}">(prima ${eur(a.prezzoPrec)})</b>`:''}`:''}</small></div>
+  return `<div class="row crow${on?'':' off'}" data-id="${a.id}"><div class="r-name"><button class="link nm" data-edit>${esc(a.nome)}</button><small>${esc(fornLabel(a))}, ${esc(a.unita||'')}${a.lotto>0?`, ordine fisso ${a.lotto}`:''}${a.conf>1?`, cartone da ${a.conf}`:''}${a.prezzo>0?`, ${eur(a.prezzo)}${a.prezzoPrec>0&&a.prezzoPrec!==a.prezzo?` <b style="color:${a.prezzo>a.prezzoPrec?'var(--tom)':'inherit'}">(prima ${eur(a.prezzoPrec)})</b>`:''}`:''}</small></div>
     <label class="chk"><input type="checkbox" data-on${on?' checked':''}> In uso</label>
     ${isDir(a) ? '<span class="sc">Ordine diretto</span>' : `<span class="mm"><label class="sc">Min<input inputmode="decimal" data-sc value="${sc?fmtN(sc):''}" autocomplete="off"></label><label class="sc">Max<input inputmode="decimal" data-mx value="${mx?fmtN(mx):''}" autocomplete="off"></label></span>`}</div>`;
 }
@@ -1040,8 +1219,10 @@ function renderCatalogo(keep){
     view('catalogo', `<h1>Catalogo e scorte</h1><p class="empty">Il catalogo è vuoto. Puoi caricarlo con gli articoli dei fogli cartacei attuali e poi modificarlo.</p><button class="btn primary big" id="seed" style="max-width:420px">Carica il catalogo dai fogli</button>`);
     $('#seed').onclick = seedCatalogo; return;
   }
-  const groups = [...groupBy(S.articoli,'sezione')];
-  const forn = [...groupBy(S.articoli, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
+  /* Fuerte ha un catalogo a parte: si vedono solo gli articoli della pizzeria scelta */
+  const arts = S.articoli.filter(a => SEDI_SEPARATE.includes(sede) ? a.sedeSola === sede : !a.sedeSola);
+  const groups = [...groupBy(arts,'sezione')].sort((x,y) => sezIdx(x[0]) - sezIdx(y[0]));
+  const forn = [...groupBy(arts, a => a.fornitore || '')].sort((a,b)=>a[0].localeCompare(b[0]));
   const np = Object.keys(S.catPending).length;
   view('catalogo', `<div class="vhead"><h1>Scorte di ${esc(sedeNome(sede))}</h1><select id="cs" class="sel">${SEDI.map(s=>`<option value="${s.id}"${s.id===sede?' selected':''}>Scorte di ${esc(s.nome)}</option>`).join('')}</select><button class="btn" id="nuovo">Nuovo articolo</button><button class="btn" id="allinea">Aggiorna catalogo</button></div>
     <div class="note warn"><label class="chk"><input type="checkbox" id="galc"${(S.impostazioni||{}).giacenzaAlcolici?' checked':''}> <b>Giacenza su vini, bollicine, amari e distillati</b></label>
@@ -1112,13 +1293,14 @@ function editArticolo(id){
     <label class="fld">Ordine fisso: sotto il minimo ordina sempre questa quantità (es. 40 = un bancale; vuoto = calcolato fino al massimo)<input id="alot" inputmode="numeric" value="${a.lotto>0?a.lotto:''}"></label>
     <label class="fld">Cartone da: l'ordine si arrotonda a cartoni interi (es. 12 = si ordina 12, 24, 36…; vuoto = pezzi singoli)<input id="aconf" inputmode="numeric" value="${a.conf>1?a.conf:''}"></label>
     <label class="fld">Prezzo per unità di conteggio (€, solo per te: serve a stimare il valore dell'ordine)${a.prezzoData?` <small class="muted">aggiornato il ${fmt(a.prezzoData)}</small>`:''}<input id="aprz" inputmode="decimal" value="${a.prezzo>0?String(a.prezzo).replace('.',','):''}"></label>
+    ${a.sedeSola ? `<label class="fld" style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" id="amano" ${a.mano?'checked':''} style="width:auto"> Quantità a scelta mia (freschi): niente ordine automatico, la scrivo io guardando la giacenza</label>` : ''}
     <label class="fld">Reparto<select id="arep">${REPARTI.map(r=>`<option value="${r.id}"${r.id===(id?repDi(a):'pizzeria')?' selected':''}>${r.nome}</option>`).join('')}</select></label>
     <label class="chk" style="margin-bottom:1rem"><input type="checkbox" id="adir"${a.diretto?' checked':''}> Ordine diretto: il personale scrive quanto ordinare, senza giacenza</label>
     <datalist id="dl-sez">${sezs.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <datalist id="dl-forn">${forns.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <div class="acts">${id?'<button class="btn danger" id="adel">Elimina</button>':''}<span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="asave">Salva</button></div>`, m => {
     m.querySelector('#asave').onclick = async () => {
-      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), conf:Math.max(0, parseInt($('#aconf').value)||0), ...(() => { const v = Math.max(0, parseFloat(($('#aprz').value||'').replace(',','.'))||0), old = Number(a.prezzo)||0;
+      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), conf:Math.max(0, parseInt($('#aconf').value)||0), ...($('#amano') ? {mano: $('#amano').checked} : {}), ...(() => { const v = Math.max(0, parseFloat(($('#aprz').value||'').replace(',','.'))||0), old = Number(a.prezzo)||0;
         return v === old ? {} : {prezzo:v, prezzoData:ymd(new Date()), prezzoPrec:old}; })(), diretto:$('#adir').checked, reparto:$('#arep').value};
       if(!d.nome){ toast('Inserisci il nome','err'); return; }
       if(id) await db.collection('articoli').doc(id).update(d);
@@ -1138,23 +1320,28 @@ async function allineaCatalogo(){
   const key = s => s.trim().toLowerCase();
   const std = []; let ord = Math.max(0, ...S.articoli.map(x=>x.ordine||0)) + 1;
   SEED.forEach(([sez,forn,unit,list]) => list.split('|').forEach(item => { const [nome,u,sc,mx] = item.split(':'); std.push({sez,forn,unit:(u||unit).trim(),nome:nome.trim(),sc,mx}); }));
-  const stdNomi = new Set(std.map(x => key(x.nome)));
-  const dbNomi = new Set(S.articoli.map(a => key(a.nome)));
-  const nuovi = std.filter(x => !dbNomi.has(key(x.nome)));
-  const tolti = S.articoli.filter(a => !stdNomi.has(key(a.nome)));
-  const lotti = S.articoli.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
-  const confs = S.articoli.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
-  const prezzi = S.articoli.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
+  std.push(...fuerteStd());
+  const kk = x => key(x.nome) + (x.sedeSola ? '@' + x.sedeSola : '');
+  const stdNomi = new Set(std.map(kk));
+  const dbNomi = new Set(S.articoli.map(kk));
+  const nuovi = std.filter(x => !dbNomi.has(kk(x)));
+  const tolti = S.articoli.filter(a => !stdNomi.has(kk(a)));
+  const ita = S.articoli.filter(a => !a.sedeSola);
+  const lotti = ita.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
+  const confs = ita.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
+  const prezzi = ita.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
   const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione && !(SOLO_SEDI_ART[a.nome] && !SOLO_SEDI_ART[a.nome].includes(MAG30.sedeScorte))), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
-  std.forEach(x => { if(FORN_SEED_OVERRIDE[x.nome]) x.forn = FORN_SEED_OVERRIDE[x.nome]; if(SEZ_SEED_OVERRIDE[x.nome]) x.sez = SEZ_SEED_OVERRIDE[x.nome]; });
-  const cambiaSez = S.articoli.filter(a => SEZ_SEED_OVERRIDE[a.nome] && a.sezione !== SEZ_SEED_OVERRIDE[a.nome]);
-  const fuoriSede = S.articoli.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
-  const fornSeed = {}; std.forEach(x => { if(['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
-  const cambiaForn = S.articoli.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
+  std.forEach(x => { if(x.sedeSola) return; if(FORN_SEED_OVERRIDE[x.nome]) x.forn = FORN_SEED_OVERRIDE[x.nome]; if(SEZ_SEED_OVERRIDE[x.nome]) x.sez = SEZ_SEED_OVERRIDE[x.nome]; });
+  const cambiaSez = ita.filter(a => SEZ_SEED_OVERRIDE[a.nome] && a.sezione !== SEZ_SEED_OVERRIDE[a.nome]);
+  const fuoriSede = ita.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
+  const fornSeed = {}; std.forEach(x => { if(!x.sedeSola && ['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
+  const cambiaForn = ita.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
   if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
-  if(nuovi.length) righe.push('Da aggiungere: ' + nuovi.map(x=>x.nome).join(', '));
+  const nuoviFu = nuovi.filter(x => x.sedeSola), nuoviIt = nuovi.filter(x => !x.sedeSola);
+  if(nuoviFu.length) righe.push(`Teperino Fuerte: ${nuoviFu.length} articoli nuovi (${[...new Set(nuoviFu.map(x => x.sez))].join(', ')})`);
+  if(nuoviIt.length) righe.push('Da aggiungere: ' + nuoviIt.map(x=>x.nome).join(', '));
   if(tolti.length) righe.push('Da eliminare: ' + tolti.map(a=>a.nome).join(', '));
   if(cambiaSez.length) righe.push('Sezione propria per: ' + cambiaSez.map(a=>a.nome).join(', ') + ' (in tutte le pizzerie)');
   if(fuoriSede.length) righe.push(fuoriSede.map(a => `${a.nome} solo per ${SOLO_SEDI_ART[a.nome].map(sedeNome).join(' e ')}`).join(', '));
@@ -1166,7 +1353,9 @@ async function allineaCatalogo(){
   if(sezSede.length) righe.push('Sezioni disattivate: ' + SEDI.flatMap(s => [...new Set(sezSede.filter(a => !sezInSede(a.sezione,s.id) && attivo(a,s.id)).map(a => a.sezione))].map(z => `${z} per ${s.nome}`)).join(', '));
   if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
   const b = db.batch();
-  nuovi.forEach(x => { const scs = scorteSeed(x.sc), mxs = scorteSeed(x.mx), dir = SEZ_DIRETTE[x.sez]; const sedi = {};
+  nuovi.filter(x => x.sedeSola).forEach(x => b.set(db.collection('articoli').doc(), {nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++,
+    sedi:{[x.sedeSola]: {on:true, scorta:x.stock, max:x.max}}, sedeSola:x.sedeSola, alt:x.alt, mano:MANO_SEED.includes(x.nome), diretto:false, reparto:x.rep, lotto:0, conf:FUERTE_CONF[x.nome]||0, ...(FUERTE_ORD[x.nome] ? {ordUnita: FUERTE_ORD[x.nome]} : {}), ...(TORTE_FUERTE.includes(x.nome) ? {ordTorte: true} : {}), ...(FUERTE_LOTTO[x.nome] ? {lotto: FUERTE_LOTTO[x.nome]} : {}), ...(PREZZI_FUERTE[x.nome] ? {prezzo: PREZZI_FUERTE[x.nome], prezzoData: PREZZI_FUERTE_DATA} : {})}));
+  nuovi.filter(x => !x.sedeSola).forEach(x => { const scs = scorteSeed(x.sc), mxs = scorteSeed(x.mx), dir = SEZ_DIRETTE[x.sez]; const sedi = {};
     SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(x.sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
     b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, conf:CONF_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
   tolti.forEach(a => b.delete(db.collection('articoli').doc(a.id)));
@@ -1209,7 +1398,7 @@ async function renderUtenti(){
 
 /* ============ MODALITÀ DI PROVA (senza Firebase) ============ */
 function makeDemo(){
-  const KEY = 'giacenze-demo-v29';
+  const KEY = 'giacenze-demo-v51';
   let store; try{ store = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   store = store || {};
   const DEL = {__del:1}, TS = {__ts:1}, listeners = [];
@@ -1266,7 +1455,7 @@ function makeDemo(){
     SEDI.forEach(s => _set('utenti', `tablet-${s.id}@demo.it`, {sede:s.id}));
     _set('config','consegne',{'Sal De Riso':'2026-11-26'});
     const oper = ['Pablo','Marco','Giulia','Sara'];
-    SEDI.forEach((s,si) => {
+    SEDI.filter(s => !SEDI_SEPARATE.includes(s.id)).forEach((s,si) => {
       const g = {}; arts.forEach(a => g[a.id] = Math.floor(Math.random()*((a.mxs[s.id]||a.scs[s.id]||3)+1)));
       for(let w=5; w>=1; w--){
         const d = lastSunday(); d.setDate(d.getDate() - 7*w); const data = ymd(d);
