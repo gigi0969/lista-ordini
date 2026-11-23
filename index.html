@@ -588,8 +588,8 @@ async function caricaProgOrdinati(sede, data, escludiId){
 }
 
 /* admin: dalla lista di un reparto passi direttamente all'altro reparto della stessa pizzeria e dello stesso giorno */
-const repSwitch = c => !S.admin || !c ? '' : `<div class="acts" style="margin:.3rem 0 .6rem">${[...repartiDi(c.sede), ...(soloGiac(c.sede) ? [{id:'sala', nome:'Bar e sala'}] : [])]
-  .filter(r => r.id !== c.reparto).map(r => `<button class="btn" data-vai="${r.id}">${esc(r.nome)} →</button>`).join('')}</div>`;
+/* tolto: per cambiare reparto si usa solo "Cambia reparto" (torna alla pagina dei reparti) */
+const repSwitch = c => '';
 document.addEventListener('click', async e => { const b = e.target.closest && e.target.closest('[data-vai]'); if(!b || !S.conta) return;
   e.stopPropagation(); e.preventDefault(); const c = S.conta, rep = b.dataset.vai;
   try{ const sn = await db.collection('conteggi').doc(`${c.sede}_${c.data}_${rep}`).get();
