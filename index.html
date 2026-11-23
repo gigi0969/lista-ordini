@@ -292,12 +292,18 @@ const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpo
   'Ghiaccio':0.95 /* Megahielo H. 60GR al sacco */,'Patatine':1.84 /* Megahielo al kg */};
 const PREZZI_FUERTE_DATA = '2026-11-19';
 /* Carmur (fatture 03/11 e 20/11/2026), al kg o al pezzo */
+/* fatture Mammafiore set-ott 2026 (al pezzo come arriva), Damm/Convenienza 15/10, Carmur 24/10 */
+Object.assign(PREZZI_FUERTE, {'Grana Padano':21.22 /* pezzo circa 1,25 kg a 16,96 €/kg */, 'Coppa':20.74 /* circa 0,9 kg a 22,67 €/kg */,
+  'Mortadella':25.91 /* mezza circa 3,2 kg a 8,12 €/kg */, 'Nduja':5.40 /* circa 0,45 kg */,
+  'Estrella barile':83.00 /* barril 50 L netto sconto */, 'Turia barile':77.70 /* barril 20 L */, 'Damm Lemon':25.93 /* caja 24x33 cl */,
+  'Pomodorini':4.80 /* tomate cherry pera al kg */, 'Erba buena':0.45 /* mazzo */});
 Object.assign(PREZZI_FUERTE, {'Zucchine':3.20,'Melanzane':2.50,'Peperoni':3.80,'Insalata cogollos':1.30,'Pomodoro grande':3.30,'Carote':1.35});
 /* prezzi degli altri fornitori per lo stesso articolo (per unità di conteggio), usati in tendina e nel valore stimato */
 const PREZZI_ALT_FUERTE = {
   'Comit': {'Crema di zucca':6.50 /* 580 ml */, 'Funghi champignon':7.03 /* lamine 3 kg */, 'Salsiccia':8.66 /* impasto 1 kg congelato */,
     'Stracciatella':4.71 /* 250 g congelata */, 'Olive denocciolate':12.27 /* 5 kg */, 'Crema cacio e pepe':16.53 /* 560 g, prezzo pieno */,
-    'Mozzarella':19.32 /* tina 2,8 kg a 6,90 €/kg netti */, 'Burrata':2.32 /* 125 g congelata */},
+    'Mozzarella':19.32 /* tina 2,8 kg a 6,90 €/kg netti */, 'Burrata':1.96 /* barattolo 125 g fresca (congelata 2,32) */,
+    'Bufala':2.07 /* DOP 125 g */, 'Cotto':25.16 /* Mamma Tina 4 kg a 6,29 €/kg */},
   'SDM Food': {'Bufala':2.10 /* DOP 125 g */, 'Burrata':2.40 /* Valco 125 g */, 'Ricotta':8.85 /* 1,5 kg */, 'Coppa':22.90 /* al kg */,
     'Crudo':44.14 /* mattonella circa 2,6 kg a 16,90 €/kg */, 'Pesto di pistacchio':17.90 /* salsa vaso 520 g */}};
 const prezzoF = (r, f) => { const art = S.articoli.find(x => x.id === r.id); const p = (PREZZI_ALT_FUERTE[f]||{})[r.nome];
@@ -1365,6 +1371,7 @@ async function allineaCatalogo(){
   const lotti = ita.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
   const confs = ita.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
   const prezzi = ita.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
+  const prezziFu = S.articoli.filter(a => a.sedeSola && PREZZI_FUERTE[a.nome] && !(Number(a.prezzo) > 0));
   const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione && !(SOLO_SEDI_ART[a.nome] && !SOLO_SEDI_ART[a.nome].includes(MAG30.sedeScorte))), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
   std.forEach(x => { if(x.sedeSola) return; if(FORN_SEED_OVERRIDE[x.nome]) x.forn = FORN_SEED_OVERRIDE[x.nome]; if(SEZ_SEED_OVERRIDE[x.nome]) x.sez = SEZ_SEED_OVERRIDE[x.nome]; });
@@ -1372,7 +1379,7 @@ async function allineaCatalogo(){
   const fuoriSede = ita.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
   const fornSeed = {}; std.forEach(x => { if(!x.sedeSola && ['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
   const cambiaForn = ita.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
-  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
+  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !prezziFu.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   const nuoviFu = nuovi.filter(x => x.sedeSola), nuoviIt = nuovi.filter(x => !x.sedeSola);
   if(nuoviFu.length) righe.push(`Teperino Fuerte: ${nuoviFu.length} articoli nuovi (${[...new Set(nuoviFu.map(x => x.sez))].join(', ')})`);
@@ -1382,6 +1389,7 @@ async function allineaCatalogo(){
   if(fuoriSede.length) righe.push(fuoriSede.map(a => `${a.nome} solo per ${SOLO_SEDI_ART[a.nome].map(sedeNome).join(' e ')}`).join(', '));
   if(riattiva30.length) righe.push('Riattivati gli articoli Sanfelici della 3.0 (li conta la 2.0 nel Magazzino Sanfelici 3.0)');
   if(prezzi.length) righe.push('Prezzi dai DDT Sanfelici: ' + prezzi.length + ' articoli');
+  if(prezziFu.length) righe.push('Prezzi Fuerte dalle fatture: ' + prezziFu.map(a=>a.nome).join(', '));
   if(confs.length) righe.push('Cartoni interi: ' + confs.map(a=>a.nome+' da '+CONF_SEED[a.nome]).join(', '));
   if(lotti.length) righe.push('Ordine fisso: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
   if(cambiaForn.length) righe.push('Cambio fornitore: ' + cambiaForn.map(a=>`${a.nome} → ${fornSeed[key(a.nome)]}`).join(', '));
@@ -1399,6 +1407,7 @@ async function allineaCatalogo(){
   fuoriSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!SOLO_SEDI_ART[a.nome].includes(s.id)) u[`sedi.${s.id}.on`] = false; }); b.update(db.collection('articoli').doc(a.id), u); });
   riattiva30.forEach(a => b.update(db.collection('articoli').doc(a.id), {[`sedi.${MAG30.sedeScorte}.on`]: true}));
   prezzi.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_SEED[a.nome], prezzoData: PREZZI_DATA}));
+  prezziFu.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_FUERTE[a.nome], prezzoData: '2026-11-23'}));
   confs.forEach(a => b.update(db.collection('articoli').doc(a.id), {conf: CONF_SEED[a.nome]}));
   cambiaForn.forEach(a => b.update(db.collection('articoli').doc(a.id), {fornitore: fornSeed[key(a.nome)]}));
   sezSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!sezInSede(a.sezione,s.id)) u[`sedi.${s.id}.on`] = false; }); if(!tolti.includes(a)) b.update(db.collection('articoli').doc(a.id), u); });
