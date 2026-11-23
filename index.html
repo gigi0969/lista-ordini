@@ -530,9 +530,12 @@ async function openSede(sede,data){
   if(S.admin) setSedeAttiva(sede);
   view('sede','<p class="loading">Caricamento…</p>');
   let snaps;
-  const REPS = repartiDi(sede).filter(r => r.id !== MAG30.id || artsPer(sede, r.id, data).length);
+  let REPS = repartiDi(sede).filter(r => r.id !== MAG30.id || artsPer(sede, r.id, data).length);
+  /* Fuerte: le vecchie liste "Bar e sala" fatte prima della lista unica restano apribili */
+  if(soloGiac(sede)) REPS = [...REPS, {id:'sala', nome:'Bar e sala (lista separata)'}];
   try{ snaps = await Promise.all(REPS.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere le giacenze (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
+  if(soloGiac(sede) && !snaps[snaps.length-1].exists){ REPS = REPS.slice(0,-1); snaps = snaps.slice(0,-1); }
   if(S.view!=='sede') return;
   const blocco = r => !S.admin && data === ymd(oggiLista()) && (S.bloccoRep||{})[r] && !(snaps[REPS.findIndex(x=>x.id===r)]||{}).exists ? S.bloccoRep[r] : null;
   const blocchi = REPS.map(r => [r.id, blocco(r.id)]).filter(x => x[1]);
@@ -584,6 +587,14 @@ async function caricaProgOrdinati(sede, data, escludiId){
   }catch(e){}
 }
 
+/* admin: dalla lista di un reparto passi direttamente all'altro reparto della stessa pizzeria e dello stesso giorno */
+const repSwitch = c => !S.admin || !c ? '' : `<div class="acts" style="margin:.3rem 0 .6rem">${[...repartiDi(c.sede), ...(soloGiac(c.sede) ? [{id:'sala', nome:'Bar e sala'}] : [])]
+  .filter(r => r.id !== c.reparto).map(r => `<button class="btn" data-vai="${r.id}">${esc(r.nome)} →</button>`).join('')}</div>`;
+document.addEventListener('click', async e => { const b = e.target.closest && e.target.closest('[data-vai]'); if(!b || !S.conta) return;
+  e.stopPropagation(); e.preventDefault(); const c = S.conta, rep = b.dataset.vai;
+  try{ const sn = await db.collection('conteggi').doc(`${c.sede}_${c.data}_${rep}`).get();
+    if(!sn.exists){ toast(`${repNome(rep)}: lista di ${dayName(c.data)} non ancora fatta`,'err'); return; } }catch(err){}
+  openConta(c.sede, c.data, rep); }, true);
 async function openConta(sede,data,rep){
   if(S.admin) setSedeAttiva(sede);
   view('conta','<p class="loading">Caricamento…</p>');
@@ -612,7 +623,7 @@ function renderConta(){
   const arts = artsPer(c.sede, c.reparto, c.data); S.contaArts = arts;
   if(!arts.length){ view('conta', `<h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="empty">Nessun articolo per questo reparto. ${S.admin?'Caricalo da Catalogo e scorte.':"Avvisa l'amministratore."}</p>`); return; }
   const groups = [...groupBy(arts,'sezione')]; S.contaGroups = groups; c.inviati = c.inviati || {};
-  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>${repSwitch(S.conta)}
   <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}</p>${S.admin ? '<button class="link" id="elimAperta" style="color:var(--tom)">Elimina questa lista</button>' : ''}</div>
     <label class="fld">Chi sta contando<input id="oper" value="${esc(c.operatore)}" placeholder="Nome e cognome" autocomplete="off"></label></div>
   <div class="rail"><div class="chips">${groups.map(([s],i)=>`<button class="chip" data-go="${i}" id="chip-${i}">${esc(s)}<b></b></button>`).join('')}</div>
@@ -882,7 +893,7 @@ function renderChiuso(){
   FORN_UNICI.forEach(f => { if(!gm.has(f) && righeAltro(c,f).length) gm.set(f, []); });
   const groups = [...gm].map(([k,l]) => [k, l, l.length > 0 && l.every(r => r.inviato)]).sort((a,b)=>a[2]-b[2]||a[0].localeCompare(b[0]));
   const an = repNome(REPARTI.find(r => r.id !== c.reparto).id);
-  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>${repSwitch(S.conta)}
   <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
     ${S.admin?'<div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div>':''}</div>
@@ -988,7 +999,7 @@ function renderChiusoSoloGiac(c){
   const conForn = inOrdine.filter(r => r.ordine > 0 && fornScelto(r));
   const senzaForn = inOrdine.filter(r => r.ordine > 0 && !fornScelto(r));
   const perF = [...groupBy(conForn, r => fornScelto(r))].sort((a,b)=>a[0].localeCompare(b[0]));
-  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
+  view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>${repSwitch(S.conta)}
   <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1>
     <p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore)}${cd?` il ${cd.toLocaleDateString('it-IT')} alle ${cd.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`:''}</p></div>
     <div class="acts"><button class="btn" id="csv">Esporta CSV</button><button class="btn" id="riapri">Riapri</button><button class="btn danger" id="elim">Elimina</button></div></div>
