@@ -268,7 +268,7 @@ const FUERTE_SEED = [
   ['Megahielo','Megahielo','PZ','pizzeria',[],'Ghiaccio:Sacco:4:10|Patatine:KG:3:5'],
   ['Liquori e vini HGR','HGR','Bottiglia','sala',[],'Amaro Ramazzotti::1|Aperol::2|Rhum Arehucas bianco::1|Rhum Arehucas rosso::1|Batida de coco::1|Baileys::2|Amaro del Capo::1|Brandy 103::1|Campari::1|Cynar::1|Disaronno::1|Fernet Branca::1|Gin Gordon\'s::1|Gin Tanqueray::1|Granatina::1|Grappa morbida::1|Grappa secca::1|Whisky Haig::1|Jägermeister::1|Liquirizia::1|Martini bianco::1|Martini rosso::1|Montenegro::1|Nocino::1|Passito|Rhum Miel::2|Sambuca::1|Vodka::1|Sangria::3|Prosecco Provetto::6|Vino rosato::6|Vino blanco spagnolo::6|Vino tinto spagnolo::6|Latte:PZ:2:4'],
   ['Vini e birre Mammafiore','Mammafiore','Bottiglia','sala',[],'Limoncino::0.5:1|Prosecco Conca d\'Oro|Chardonnay 1,5 lt::3:6|Chardonnay 0,75 lt::5:10|Montepulciano 1,5 lt::3:7|Montepulciano 0,75 lt::5:6|Birra Ichnusa:Cassa:1:20|Birra gluten free:Cassa'],
-  ['Coca-Cola','Coca-Cola','Cassa','sala',[],'Appetizer::6:24|Coca-Cola::0.5:2|Coca-Cola Zero::1:3|Fanta Limón::0.5:1.8|Fanta Naranja::0.5:2|Nestea limón::0.5:1.5|Nestea mango::0.5:1.5|Succo ananas::0.5:2|Succo mela::0.5:1.3|Succo pesca|Tonica::0.5:1.5|Coca-Cola lattina::0.5:2|Coca-Cola Zero lattina::1:3|Fanta lattina::0.5:1|Sprite::0.5:2'],
+  ['Coca-Cola','Coca-Cola','Cassa','sala',[],'Appetizer:Bottiglia:6:24|Coca-Cola::0.5:2|Coca-Cola Zero::1:3|Fanta Limón::0.5:1.8|Fanta Naranja::0.5:2|Nestea limón::0.5:1.5|Nestea mango::0.5:1.5|Succo ananas::0.5:2|Succo mela::0.5:1.3|Succo pesca|Tonica::0.5:1.5|Coca-Cola lattina::0.5:2|Coca-Cola Zero lattina::1:3|Fanta lattina::0.5:1|Sprite::0.5:2'],
   ['Acqua Firgas','Firgas','Cassa','sala',[],'Acqua frizzante vetro::1.5:3|Acqua naturale vetro::1:4|Boccione acqua impasto:PZ:2:4|Acqua personale gas::2:5|Acqua personale naturale|Acqua 0,50 naturale|Acqua 0,50 gas'],
   ['Birra Damm','Damm','Cassa','sala',[],'Estrella barile:PZ:0.5:2|Turia barile:PZ:0.5:1.7|Damm Lemon::0.5:2|Damm Lemon Zero::0.5:2|Estrella Damm 0,0::2:2.7'],
   ['Dishare','Dishare','PZ','sala',[],'Carta mani|Bobine|Carta igienica::2:9|Tovaglioli Cankuro:CT:0.5:1|Tovaglioli piccoli dolci::0.5:1|Pellicola::0.5:1|Alluminio::0.5:1|Contenitori asporto::0.5:1|Carta frittura::0.5:1|Cannucce::0.5:1|Bastoncini frittura::0.5:1'],
@@ -283,7 +283,8 @@ const MANO_SEED = ['Mozzarella','Bufala','Burrata','Stracciatella'];
 /* confezioni Fuerte: ghiaccio in borse da 5 sacchi, basilico a mezze casse */
 const FUERTE_CONF = {'Ghiaccio':5, 'Basilico':0.5, 'Provola':16 /* Mammafiore: cartone da 16 pz da 500 g, congelata */,
   'Bufala':8 /* 125 g x 8 */, 'Pelati Gustarosso':6 /* 2,5 kg x 6 */, 'Babà al rum':12 /* 130 g x 12 */,
-  'Patatine':10 /* Megahielo: papas congeladas 9x9, sempre 10 kg */};
+  'Patatine':10 /* Megahielo: papas congeladas 9x9, sempre 10 kg */,
+  'Appetizer':24 /* si contano le bottiglie, si ordina a casse da 24 */};
 /* Prezzi Mammafiore dalle fatture FVR26-19210/19917/20178/20632 (prezzo netto dopo sconto, IGIC esclusa), per unità di conteggio */
 const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpone':4.56,'Provola':4.88,'Grattugiato':16.99,
   'Crema tartufata':10.12,'Crema di zucca':4.87,'Friarielli':5.92,'Funghi champignon':4.96,'Funghi porcini':12.40,'Box pizza':28.42,'Caffè':16.49,
@@ -291,7 +292,19 @@ const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpo
   'Cuoppo':9.35,'Acciughe':18.07,'Montepulciano 0,75 lt':3.64,'Chardonnay 1,5 lt':5.56,'Aceto glassa':4.93,'Birra gluten free':40.76,
   'Ghiaccio':0.95 /* Megahielo H. 60GR al sacco */,'Patatine':1.84 /* Megahielo al kg */};
 const PREZZI_FUERTE_DATA = '2026-11-19';
+/* applicate da "Aggiorna catalogo" anche agli articoli Fuerte già esistenti */
+const FIX_FUERTE = {'Appetizer': {unita:'Bottiglia', conf:24, ordUnita:['Cassa','Casse'], prezzo:0.87, prezzoData:'2026-11-23'}};
 /* Carmur (fatture 03/11 e 20/11/2026), al kg o al pezzo */
+/* Coca-Cola EP fattura 2730289230 del 15/11/2026: netto sconti a cassa, cauzione cassa+vuoti (7,50) esclusa */
+Object.assign(PREZZI_FUERTE, {'Nestea limón':20.27 /* Fuze limón vetro 30 cl x24 */, 'Nestea mango':19.91 /* Fuze mango-piña x24 */,
+  'Coca-Cola':24.14 /* vetro 35 cl x24 */, 'Coca-Cola Zero':24.14, 'Succo pesca':17.95 /* Minute Maid melocotón 20 cl x24 */,
+  'Appetizer':0.87 /* Appletiser 27,5 cl a bottiglia (20,90 la cassa da 24) */, 'Coca-Cola lattina':18.65 /* lattina 33 cl x24 */});
+/* Coca-Cola EP fattura 2729070606 del 31/10/2026 */
+Object.assign(PREZZI_FUERTE, {'Tonica':19.23 /* Royal Bliss tonic 20 cl x24 */, 'Fanta Naranja':21.15, 'Fanta Limón':21.15, 'Sprite':21.15 /* vetro 35 cl x24 */,
+  'Succo mela':16.74 /* Minute Maid manzana 20 cl x24 */, 'Fanta lattina':16.58 /* lattina 33 cl x24 */});
+/* Dishare fattura 16622 del 23/09/2026 */
+Object.assign(PREZZI_FUERTE, {'Carta mani':2.22 /* bobina secamanos 2 veli 106 m */, 'Carta igienica':1.58 /* rotolo WC 2 veli 161 m */,
+  'Contenitori asporto':12.71 /* alluminio con coperchio 590 cc, conf. 50 */, 'Tovaglioli piccoli dolci':1.10 /* 20x20 neri, conf. 100 */});
 /* fatture Mammafiore set-ott 2026 (al pezzo come arriva), Damm/Convenienza 15/10, Carmur 24/10 */
 Object.assign(PREZZI_FUERTE, {'Grana Padano':21.22 /* pezzo circa 1,25 kg a 16,96 €/kg */, 'Coppa':20.74 /* circa 0,9 kg a 22,67 €/kg */,
   'Mortadella':25.91 /* mezza circa 3,2 kg a 8,12 €/kg */, 'Nduja':5.40 /* circa 0,45 kg */,
@@ -310,7 +323,7 @@ const prezzoF = (r, f) => { const art = S.articoli.find(x => x.id === r.id); con
   if(p) return p; return art && f === art.fornitore ? prezzoDi(r.id) : 0; };
 /* come si chiama la confezione nell'ordine: "1 Cartone Provola (16 PZ)", "2 Borse Ghiaccio (10 Sacco)" */
 const TORTE_FUERTE = ['Caprese','Pastiera','Tiramisù','Torta al pistacchio','Torta della nonna'];
-const FUERTE_ORD = {'Provola':['Cartone','Cartoni'], 'Ghiaccio':['Borsa','Borse'], 'Bufala':['Cartone','Cartoni'], 'Pelati Gustarosso':['Cartone','Cartoni'], 'Babà al rum':['Cartone','Cartoni']};
+const FUERTE_ORD = {'Provola':['Cartone','Cartoni'], 'Ghiaccio':['Borsa','Borse'], 'Bufala':['Cartone','Cartoni'], 'Pelati Gustarosso':['Cartone','Cartoni'], 'Babà al rum':['Cartone','Cartoni'], 'Appetizer':['Cassa','Casse']};
 const ORD_SENZA_DETTAGLIO = ['Ghiaccio']; /* nel messaggio solo "2 Borse Ghiaccio" */
 const FUERTE_LOTTO = {'Provola':16 /* sotto scorta: sempre 1 cartone */,
   /* torte intere (le tagliate voi): i ragazzi contano le fette; sotto il minimo si ordina 1 torta intera */
@@ -841,10 +854,12 @@ const NOMI_ES = {'Carta mani':'Papel secamanos','Bobine':'Bobinas de papel','Car
   'Coca-Cola lattina':'Coca-Cola lata','Coca-Cola Zero lattina':'Coca-Cola Zero lata','Fanta lattina':'Fanta lata',
   'Acqua frizzante vetro':'Agua con gas','Acqua naturale vetro':'Agua sin gas','Boccione acqua impasto':'Garrafa de agua',
   'Acqua personale gas':'Agua con gas (personal)','Acqua personale naturale':'Agua sin gas (personal)','Acqua 0,50 naturale':'Agua sin gas 0,50','Acqua 0,50 gas':'Agua con gas 0,50'};
-const UNITA_ES = {'Torta':['tarta','tartas'],'Fetta':['porción','porciones'],'PZ':['unidad','unidades'],'CT':['caja','cajas'],'Cassa':['caja','cajas'],'KG':['kg','kg'],'Borsa':['bolsa','bolsas'],'Sacco':['saco','sacos'],'Bottiglia':['botella','botellas']};
+const UNITA_ES = {'Torta':['tarta','tartas'],'Fetta':['porción','porciones'],'PZ':['unidad','unidades'],'CT':['caja','cajas'],'Cassa':['caja','cajas'],'KG':['kg','kg'],'Borsa':['bolsa','bolsas'],'Sacco':['saco','sacos'],'Bottiglia':['botella','botellas'],'Cartone':['caja','cajas']};
 const GIORNI_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function testoEs(c,f,list){ const d = new Date(c.data + 'T12:00:00');
   return `*PEDIDO ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n${GIORNI_ES[d.getDay()]} ${fmt(c.data)}\n\n` + list.map(r => { const u = UNITA_ES[r.unita] || [r.unita, r.unita];
+    const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0, ou = art && art.ordUnita;
+    if(ou && cf > 1 && r.ordine % cf === 0){ const n = r.ordine / cf, ue = UNITA_ES[ou[0]] || [ou[0], ou[1]]; return `- ${fmtN(n)} ${n === 1 ? ue[0] : ue[1]} ${NOMI_ES[r.nome] || r.nome}`; }
     const q = r.ordine === 0.5 && u[0] !== 'kg' ? `media ${u[0]}` : `${fmtN(r.ordine)} ${r.ordine === 1 ? u[0] : u[1]}`;
     return `- ${q} ${u[0] === 'kg' ? 'de ' : ''}${NOMI_ES[r.nome] || r.nome}`; }).join('\n') + '\n\nGracias';
 }
@@ -1371,7 +1386,9 @@ async function allineaCatalogo(){
   const lotti = ita.filter(a => LOTTI_SEED[a.nome] && Number(a.lotto) !== LOTTI_SEED[a.nome]);
   const confs = ita.filter(a => CONF_SEED[a.nome] && Number(a.conf) !== CONF_SEED[a.nome]);
   const prezzi = ita.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
-  const prezziFu = S.articoli.filter(a => a.sedeSola && PREZZI_FUERTE[a.nome] && !(Number(a.prezzo) > 0));
+  const prezziFu = S.articoli.filter(a => a.sedeSola && PREZZI_FUERTE[a.nome] && !(Number(a.prezzo) > 0) && !FIX_FUERTE[a.nome]);
+  /* correzioni puntuali su articoli Fuerte già creati (unità, cartone, prezzo) */
+  const fixFu = S.articoli.filter(a => a.sedeSola && FIX_FUERTE[a.nome] && Object.entries(FIX_FUERTE[a.nome]).some(([k,v]) => JSON.stringify(a[k]) !== JSON.stringify(v)));
   const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione && !(SOLO_SEDI_ART[a.nome] && !SOLO_SEDI_ART[a.nome].includes(MAG30.sedeScorte))), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
   std.forEach(x => { if(x.sedeSola) return; if(FORN_SEED_OVERRIDE[x.nome]) x.forn = FORN_SEED_OVERRIDE[x.nome]; if(SEZ_SEED_OVERRIDE[x.nome]) x.sez = SEZ_SEED_OVERRIDE[x.nome]; });
@@ -1379,7 +1396,7 @@ async function allineaCatalogo(){
   const fuoriSede = ita.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
   const fornSeed = {}; std.forEach(x => { if(!x.sedeSola && ['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
   const cambiaForn = ita.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
-  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !prezziFu.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
+  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !prezziFu.length && !fixFu.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   const nuoviFu = nuovi.filter(x => x.sedeSola), nuoviIt = nuovi.filter(x => !x.sedeSola);
   if(nuoviFu.length) righe.push(`Teperino Fuerte: ${nuoviFu.length} articoli nuovi (${[...new Set(nuoviFu.map(x => x.sez))].join(', ')})`);
@@ -1389,6 +1406,7 @@ async function allineaCatalogo(){
   if(fuoriSede.length) righe.push(fuoriSede.map(a => `${a.nome} solo per ${SOLO_SEDI_ART[a.nome].map(sedeNome).join(' e ')}`).join(', '));
   if(riattiva30.length) righe.push('Riattivati gli articoli Sanfelici della 3.0 (li conta la 2.0 nel Magazzino Sanfelici 3.0)');
   if(prezzi.length) righe.push('Prezzi dai DDT Sanfelici: ' + prezzi.length + ' articoli');
+  if(fixFu.length) righe.push('Fuerte, correzioni: ' + fixFu.map(a => a.nome + (FIX_FUERTE[a.nome].unita ? ' contato a ' + FIX_FUERTE[a.nome].unita : '')).join(', '));
   if(prezziFu.length) righe.push('Prezzi Fuerte dalle fatture: ' + prezziFu.map(a=>a.nome).join(', '));
   if(confs.length) righe.push('Cartoni interi: ' + confs.map(a=>a.nome+' da '+CONF_SEED[a.nome]).join(', '));
   if(lotti.length) righe.push('Ordine fisso: ' + lotti.map(a=>a.nome+' '+LOTTI_SEED[a.nome]).join(', '));
@@ -1397,7 +1415,7 @@ async function allineaCatalogo(){
   if(!await ask(righe.join('\n\n') + '\n\nProcedere?')) return;
   const b = db.batch();
   nuovi.filter(x => x.sedeSola).forEach(x => b.set(db.collection('articoli').doc(), {nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++,
-    sedi:{[x.sedeSola]: {on:true, scorta:x.stock, max:x.max}}, sedeSola:x.sedeSola, alt:x.alt, mano:MANO_SEED.includes(x.nome), diretto:false, reparto:x.rep, lotto:0, conf:FUERTE_CONF[x.nome]||0, ...(FUERTE_ORD[x.nome] ? {ordUnita: FUERTE_ORD[x.nome]} : {}), ...(TORTE_FUERTE.includes(x.nome) ? {ordTorte: true} : {}), ...(FUERTE_LOTTO[x.nome] ? {lotto: FUERTE_LOTTO[x.nome]} : {}), ...(PREZZI_FUERTE[x.nome] ? {prezzo: PREZZI_FUERTE[x.nome], prezzoData: PREZZI_FUERTE_DATA} : {})}));
+    sedi:{[x.sedeSola]: {on:true, scorta:x.stock, max:x.max}}, sedeSola:x.sedeSola, alt:x.alt, mano:MANO_SEED.includes(x.nome), diretto:false, reparto:x.rep, lotto:0, conf:FUERTE_CONF[x.nome]||0, ...(FUERTE_ORD[x.nome] ? {ordUnita: FUERTE_ORD[x.nome]} : {}), ...(TORTE_FUERTE.includes(x.nome) ? {ordTorte: true} : {}), ...(FUERTE_LOTTO[x.nome] ? {lotto: FUERTE_LOTTO[x.nome]} : {}), ...(PREZZI_FUERTE[x.nome] ? {prezzo: PREZZI_FUERTE[x.nome], prezzoData: PREZZI_FUERTE_DATA} : {}), ...(FIX_FUERTE[x.nome] || {})}));
   nuovi.filter(x => !x.sedeSola).forEach(x => { const scs = scorteSeed(x.sc), mxs = scorteSeed(x.mx), dir = SEZ_DIRETTE[x.sez]; const sedi = {};
     SEDI.forEach(s => sedi[s.id] = {on: !(dir && dir.escludi.includes(s.id)) && sezInSede(x.sez,s.id), scorta: dir ? 0 : scs[s.id], max: dir ? 0 : mxs[s.id]});
     b.set(db.collection('articoli').doc(), {lotto:LOTTI_SEED[x.nome]||0, conf:CONF_SEED[x.nome]||0, nome:x.nome, sezione:x.sez, fornitore:x.forn, unita:x.unit, ordine:ord++, sedi, diretto:!!dir, reparto:repSeed(x.sez,x.nome)}); });
@@ -1407,6 +1425,7 @@ async function allineaCatalogo(){
   fuoriSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!SOLO_SEDI_ART[a.nome].includes(s.id)) u[`sedi.${s.id}.on`] = false; }); b.update(db.collection('articoli').doc(a.id), u); });
   riattiva30.forEach(a => b.update(db.collection('articoli').doc(a.id), {[`sedi.${MAG30.sedeScorte}.on`]: true}));
   prezzi.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_SEED[a.nome], prezzoData: PREZZI_DATA}));
+  fixFu.forEach(a => b.update(db.collection('articoli').doc(a.id), FIX_FUERTE[a.nome]));
   prezziFu.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_FUERTE[a.nome], prezzoData: '2026-11-23'}));
   confs.forEach(a => b.update(db.collection('articoli').doc(a.id), {conf: CONF_SEED[a.nome]}));
   cambiaForn.forEach(a => b.update(db.collection('articoli').doc(a.id), {fornitore: fornSeed[key(a.nome)]}));
