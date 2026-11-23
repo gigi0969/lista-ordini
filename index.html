@@ -174,6 +174,8 @@ const ADMIN_EMAILS = ['ltepe69@gmail.com'];
    Formato internazionale senza + e senza spazi, es. 393331234567. Vuoto = WhatsApp chiede a chi inviare. */
 const WHATSAPP_ORDINI = '393281626931';
 const NOME_ORDINI = 'Luigi';
+/* i locali contano e chiudono; gli ordini ai fornitori li inoltra Luigi direttamente dall'app (niente più WhatsApp dal locale) */
+const INOLTRO_DIRETTO = true;
 const waUrl = t => `https://wa.me/${WHATSAPP_ORDINI}?text=${encodeURIComponent(t)}`;
 /* Se il link a WhatsApp non si apre (anteprime che bloccano i link), mostra il testo da copiare */
 document.addEventListener('click', e => {
@@ -616,7 +618,7 @@ function renderConta(){
   <div class="rail"><div class="chips">${groups.map(([s],i)=>`<button class="chip" data-go="${i}" id="chip-${i}">${esc(s)}<b></b></button>`).join('')}</div>
     <input id="q" class="search" type="search" placeholder="Cerca articolo" autocomplete="off"></div>
   <div id="lista">${groups.map(([s,list],i)=>`<section class="sez" id="sez-${i}" data-i="${i}"><h2>${esc(s)}<span class="sez-n"></span></h2>${list.every(a=>isDir(a))?'<p class="note warn" style="margin:0;border-radius:0">Qui scrivi quanto ordinare, non la giacenza. Lascia vuoto ciò che non serve.</p>':''}${list.map(a=>rowHtml(a,c.righe[a.id])).join('')}<div class="sez-foot" id="foot-${i}"></div></section>`).join('')}</div>
-  <div class="bar"><div class="prog"><i id="pf"></i></div><div class="bar-row"><span id="mancanti"></span><span id="saved" class="muted small"></span><span id="pronti" class="acts"></span><button class="btn primary" id="chiudi">Chiudi lista e invia ordini</button></div></div>`);
+  <div class="bar"><div class="prog"><i id="pf"></i></div><div class="bar-row"><span id="mancanti"></span><span id="saved" class="muted small"></span><span id="pronti" class="acts"></span><button class="btn primary" id="chiudi">${INOLTRO_DIRETTO ? 'Chiudi lista' : 'Chiudi lista e invia ordini'}</button></div></div>`);
   updateCounts();
 
   const lista = $('#lista');
@@ -719,7 +721,7 @@ function updateCounts(){
   $('#pf').style.width = (tot ? done/tot*100 : 0) + '%';
   m.textContent = !tot ? 'Solo ordini: scrivi quello che serve' : `Giacenza: ${done} di ${tot} inseriti`; m.className = 'okt';
   const pr = $('#pronti');
-  if(pr) pr.innerHTML = miss ? pronti.filter(i => S.contaGroups[i][1].some(a => !isDir(a))).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
+  if(pr) pr.innerHTML = miss && !INOLTRO_DIRETTO ? pronti.filter(i => S.contaGroups[i][1].some(a => !isDir(a))).map(i => { const forn = [...new Set(S.contaGroups[i][1].map(a => a.fornitore || 'Senza fornitore'))].join(', ');
     return `<button class="btn primary" data-anticipo="${i}">Invia ordine ${esc(forn)}</button>`; }).join('') : '';
 }
 
@@ -776,11 +778,13 @@ async function chiudiConta(){
     const pulito = {...JSON.parse(JSON.stringify({...doc, creato:null, chiuso:null})), creato: doc.creato, chiuso: doc.chiuso};
     const write = db.collection('conteggi').doc(c.id).set(pulito);
     await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
-  catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent='Chiudi lista e invia ordini'; return; }
+  catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent=INOLTRO_DIRETTO ? 'Chiudi lista' : 'Chiudi lista e invia ordini'; return; }
   S.conta = {id:c.id, ...doc}; S.altro = null;
+  /* si apre WhatsApp con l'avviso per Luigi già scritto: basta premere Invia */
+  if(!S.admin && !offline && (INOLTRO_DIRETTO || soloGiac(c.sede))) try{ window.open(waUrl(testoAvviso(S.conta)), '_blank'); }catch(e){}
   if(c.reparto !== MAG30.id) try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
   renderChiuso();
-  toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : 'Lista chiusa: ora invia gli ordini','ok');
+  toast(offline ? 'Lista chiusa. Verrà salvata appena torna la connessione.' : (INOLTRO_DIRETTO ? 'Lista chiusa: premi Invia su WhatsApp per avvisare ' + NOME_ORDINI : 'Lista chiusa: ora invia gli ordini'),'ok');
 }
 
 function testoOrdine(c,f,list){
@@ -809,13 +813,17 @@ function righeAltro(c,f,a = altroDoc(c)){
   return righeF(a,f);
 }
 /* fornitori a cui l'ordine va scritto in spagnolo */
-const FORN_ES = ['Dishare','Carmur'];
+const FORN_ES = ['Dishare','Carmur','Coca-Cola','Firgas'];
 const NOMI_ES = {'Carta mani':'Papel secamanos','Bobine':'Bobinas de papel','Carta igienica':'Papel higiénico','Tovaglioli Cankuro':'Servilletas Cankuro',
   'Tovaglioli piccoli dolci':'Servilletas pequeñas (postres)','Pellicola':'Film transparente','Alluminio':'Papel de aluminio','Contenitori asporto':'Envases para llevar',
   'Carta frittura':'Papel para fritos','Cannucce':'Pajitas','Bastoncini frittura':'Palillos para fritos',
   'Basilico':'Albahaca','Rucola':'Rúcula','Melanzane':'Berenjenas','Peperoni':'Pimientos','Zucchine':'Calabacines','Carote':'Zanahorias',
   'Cipolla rossa':'Cebolla morada','Insalata cogollos':'Cogollos','Pepino':'Pepino','Pomodorini':'Tomates cherry','Pomodoro grande':'Tomate grande',
-  'Limoni':'Limones','Lime':'Limas','Erba buena':'Hierbabuena','Mele':'Manzanas','Pere':'Peras','Arance':'Naranjas'};
+  'Limoni':'Limones','Lime':'Limas','Erba buena':'Hierbabuena','Mele':'Manzanas','Pere':'Peras','Arance':'Naranjas',
+  'Succo ananas':'Zumo de piña','Succo mela':'Zumo de manzana','Succo pesca':'Zumo de melocotón','Tonica':'Tónica',
+  'Coca-Cola lattina':'Coca-Cola lata','Coca-Cola Zero lattina':'Coca-Cola Zero lata','Fanta lattina':'Fanta lata',
+  'Acqua frizzante vetro':'Agua con gas','Acqua naturale vetro':'Agua sin gas','Boccione acqua impasto':'Garrafa de agua',
+  'Acqua personale gas':'Agua con gas (personal)','Acqua personale naturale':'Agua sin gas (personal)','Acqua 0,50 naturale':'Agua sin gas 0,50','Acqua 0,50 gas':'Agua con gas 0,50'};
 const UNITA_ES = {'Torta':['tarta','tartas'],'Fetta':['porción','porciones'],'PZ':['unidad','unidades'],'CT':['caja','cajas'],'Cassa':['caja','cajas'],'KG':['kg','kg'],'Borsa':['bolsa','bolsas'],'Sacco':['saco','sacos'],'Bottiglia':['botella','botellas']};
 const GIORNI_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function testoEs(c,f,list){ const d = new Date(c.data + 'T12:00:00');
@@ -850,15 +858,19 @@ async function segnaInviatoWa(f){
 }
 const oraBreve = iso => { const d = new Date(iso); return d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); };
 
+/* avviso a Luigi quando il locale chiude la lista */
+const testoAvviso = c => { const det = c.dettaglio || [], n = det.filter(r => typeof r.g === 'number').length, k = det.filter(r => r.ordine > 0).length;
+  return `*${sedeNome(c.sede)}, ${repNome(c.reparto)}*\nGiacenza di ${dayName(c.data)} ${fmt(c.data)} chiusa da ${c.operatore||''}: ${n} articoli contati${!soloGiac(c.sede) && k ? `, ${k} da ordinare` : ''}.\n${location.origin}`; };
 function renderChiuso(){
   const c = S.conta, det = c.dettaglio || [];
   /* stessa lista ridisegnata dopo una scelta: resta dove eri, non tornare in cima */
   S.tieniScroll = S.view === 'conta' && S.ultimoChiuso === c.id; S.ultimoChiuso = c.id;
   if(S.admin && soloGiac(c.sede)) return renderChiusoSoloGiac(c);
-  if(!S.admin && soloGiac(c.sede)){ const n = det.filter(r => typeof r.g === 'number').length;
+  if(!S.admin && (soloGiac(c.sede) || INOLTRO_DIRETTO)){ const n = det.filter(r => typeof r.g === 'number').length, avviso = testoAvviso(c);
     view('conta', `<button class="link back" data-sedeback>Cambia reparto</button>
       <div class="conta-head"><div><h1>${esc(sedeNome(c.sede))}, ${repNome(c.reparto)}</h1><p class="muted">Lista di ${dayName(c.data)} ${fmt(c.data)}, chiusa da ${esc(c.operatore||'')}</p></div></div>
-      <div class="note" style="background:var(--basil-s,#e6f0e6);font-weight:700">Giacenza salvata: ${n} articoli contati. Grazie! Gli ordini li fa Luigi.</div>`);
+      <div class="note" style="background:var(--basil-s,#e6f0e6);font-weight:700">Giacenza salvata: ${n} articoli contati. Grazie! Gli ordini ai fornitori li manda Luigi.</div>
+      <p><a class="btn primary" target="_blank" rel="noopener" href="${waUrl(avviso)}">Avvisa ${NOME_ORDINI} su WhatsApp</a></p>`);
     main().onclick = e => { if(e.target.closest('[data-sedeback]')) openSede(c.sede, c.data); }; return; }
   const ord = det.filter(r => r.ordine > 0);
   const senza = det.filter(r => !r.diretto && !(r.scorta > 0) && !(r.max > 0) && !isMano(r.id)).length;
@@ -881,20 +893,20 @@ function renderChiuso(){
     <p class="small muted" style="margin:.4rem 0 0">Scrivi la quantità: l'articolo entra nell'ordine del suo fornitore qui sotto. Vuoto o 0 = non ordinare.</p></section>` : ''}
   <h2 class="h2">Ordini da inviare</h2>
   ${!conStati(c) ? '' : (() => { const m = fornitoriDaInviare(c); return m.length
-      ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? 'Il locale non ti ha ancora inviato' : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
+      ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${S.admin ? (INOLTRO_DIRETTO ? 'Da inoltrare ai fornitori' : 'Il locale non ti ha ancora inviato') : 'Ancora da inviare'}: ${m.map(esc).join(', ')}.${S.admin ? '' : ' Tocca il pulsante di ogni fornitore e premi invia su WhatsApp.'}</p>`
       : soloGiac(c.sede) ? (groups.length ? `<p class="note">Ordine proposto dall'app in base a minimi e massimi: scegli il fornitore, togli quello che non serve e inoltra.</p>` : '')
-      : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? 'Il locale ti ha inviato tutti gli ordini.' : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
+      : (groups.length ? `<p class="note" style="background:var(--basil-s);color:var(--basil-d);font-weight:700">${S.admin ? (INOLTRO_DIRETTO ? 'Tutti gli ordini sono stati inoltrati.' : 'Il locale ti ha inviato tutti gli ordini.') : 'Tutti gli ordini sono stati inviati.'}</p>` : ''); })()}
   ${groups.length ? `<div class="ordini">${groups.map(([f,list,inv],i)=>{ const wa = (c.inviatiWa||{})[f], fw = (c.inoltrati||{})[f]; const fatto = inv || wa || fw, att = !fatto && inAttesa(c,f,altroDoc(c)); return `<article class="ord"${fatto?' style="opacity:.8"':''}><header><h3>${esc(f)}</h3>${S.admin
-      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">Lo manda ${esc(an)}</span>` : soloGiac(c.sede) ? `<span class="pill wip">Da decidere</span>` : `<span class="pill todo">Non inviato dal locale</span>`)
+      ? (!conStati(c) ? '' : (wa||inv) ? `<span class="pill ok">Ricevuto${wa?' alle '+oraBreve(wa):''}</span>` : fw ? `<span class="pill ok">Mandato da te alle ${oraBreve(fw)}</span>` : att ? `<span class="pill wip">${INOLTRO_DIRETTO ? 'Aspetta la lista ' + esc(an) : 'Lo manda ' + esc(an)}</span>` : soloGiac(c.sede) ? `<span class="pill wip">Da decidere</span>` : (INOLTRO_DIRETTO ? `<span class="pill wip">Da inoltrare</span>` : `<span class="pill todo">Non inviato dal locale</span>`))
       : (inv?'<span class="pill ok">Già inviato</span>':wa?`<span class="pill ok">Inviato alle ${oraBreve(wa)}</span>`:att?`<span class="pill wip">Lo manda ${esc(an)}</span>`:`<span class="pill todo">Da inviare</span>`)}</header>
-    <ul>${list.map(r=>`<li><b>${fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}${S.admin && !fw ? ` <button class="link small" data-togli="${esc(r.id)}" style="color:var(--tom)">✕ non ordinare</button>` : ''}</li>`).join('')}</ul>
+    <ul>${list.map(r=>`<li><b>${S.admin && !fw ? `<input data-q="${esc(r.id)}" inputmode="decimal" value="${fmtN(r.ordine)}" aria-label="Quantità ${esc(r.nome)}" style="width:3.4rem;padding:.1rem .3rem;font:inherit;text-align:right">` : fmtN(r.ordine)} ${esc(r.unita)}</b>${esc(r.nome)}${S.admin && r.qtaProp != null ? ` <small class="muted">(proposti ${fmtN(r.qtaProp)})</small>` : ''}${r.fattura ? ` <small class="muted">fattura ${FATT[r.fattura]}</small>` : ''}${S.admin && !fw && r.fattura ? ` <button class="link small" data-fatt="${esc(r.id)}">→ fattura ${r.fattura === 'gramsci' ? '3.0' : '2.0'}</button>` : ''}${S.admin && !fw ? altDi(r,c).map(a => ` <button class="link small" data-sposta="${esc(r.id)}" data-a="${esc(a)}">→ ${esc(a)}</button>`).join('') : ''}${S.admin && !fw ? ` <button class="link small" data-togli="${esc(r.id)}" style="color:var(--tom)">✕ non ordinare</button>` : ''}</li>`).join('')}</ul>
     ${S.admin ? (() => { const t = (c.dettaglio||[]).filter(r => r.tolto && (r.fornitore||'Senza fornitore') === f); return t.length ? `<p class="small muted" style="margin:.3rem 0">Tolti da te: ${t.map(r => `${esc(r.nome)} (${fmtN(r.tolto)}) <button class="link small" data-rimetti="${esc(r.id)}">rimetti</button>`).join(', ')}</p>` : ''; })() : ''}
     ${S.admin ? (() => { const tutte = [...list, ...righeAltro(c,f)]; const conP = tutte.filter(r => prezzoDi(r.id) > 0);
         if(!conP.length) return ''; const tot = conP.reduce((t,r) => t + r.ordine * prezzoDi(r.id), 0), mn = MIN_ORDINE[f];
         return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${conP.length < tutte.length ? ` <span class="muted">(${tutte.length - conP.length} articoli senza prezzo)</span>` : ''}${mn && tot < mn ? `<br><b style="color:var(--tom)">Sotto il minimo d'ordine ${esc(f)} di ${eur(mn)}</b>` : ''}</p>`; })() : ''}
     ${(() => { const al = righeAltro(c,f);
         if(al.length) return `<p class="muted" style="margin:.4rem 0">${list.length ? '+ ' : ''}${al.length} articoli ${esc(f)} di ${esc(an)}: ${S.admin ? 'li inoltri' : 'partono'} insieme in un solo messaggio.</p>`;
-        if(!fatto && inAttesa(c,f,altroDoc(c))) return `<p class="muted" style="margin:.4rem 0">${esc(f)} parte in un solo messaggio per tutta la pizzeria: lo manda ${esc(an)} quando chiude la sua lista.${S.admin ? '' : ` Se oggi ${esc(an)} non fa la lista, premi <b>Invia lo stesso</b>.`}</p>`;
+        if(!fatto && inAttesa(c,f,altroDoc(c))) return `<p class="muted" style="margin:.4rem 0">${esc(f)} parte in un solo messaggio per tutta la pizzeria: ${INOLTRO_DIRETTO && S.admin ? `aspetta che chiudano anche la lista ${esc(an)}, poi lo inoltri tutto insieme` : `lo manda ${esc(an)} quando chiude la sua lista`}.${S.admin ? '' : ` Se oggi ${esc(an)} non fa la lista, premi <b>Invia lo stesso</b>.`}</p>`;
         return ''; })()}
     <div class="ord-acts">${S.admin
       ? `<button class="btn primary" data-share="${i}">${righeAltro(c,f).length ? 'Inoltra al fornitore (tutta la pizzeria)' : 'Inoltra al fornitore'}</button>`
@@ -903,6 +915,14 @@ function renderChiuso(){
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th><th class="n">Ordine</th></tr></thead>
     <tbody>${[...groupBy(det,'sezione')].map(([s,l])=>`<tr class="grp"><td colspan="5">${esc(s)}</td></tr>`+l.map(r=>`<tr><td>${esc(r.nome)}</td><td class="n">${r.diretto?'ordine diretto':typeof r.g==='number'?fmtN(r.g)+' '+esc(r.unita):'<span class="muted">non contato</span>'}</td><td class="n">${r.scorta>0?fmtN(r.scorta):'–'}</td><td class="n">${r.max>0?fmtN(r.max):'–'}</td><td class="n">${r.ordine>0?fmtN(r.ordine):''}</td></tr>`).join('')).join('')}</tbody></table></div></details>`);
+  /* cambi la quantità proposta (es. 4 casse → 3); 0 = non ordinare */
+  main().querySelectorAll('[data-q]').forEach(inp => inp.onchange = async () => {
+    const r = (c.dettaglio||[]).find(x => x.id === inp.dataset.q); if(!r) return;
+    const v = Math.max(0, parseFloat((inp.value||'').replace(',','.')) || 0);
+    if(r.qtaProp == null) r.qtaProp = r.ordine;
+    if(v > 0){ r.ordine = v; if(r.qtaProp === v) delete r.qtaProp; } else { r.tolto = r.qtaProp; r.ordine = 0; delete r.qtaProp; }
+    try{ await db.collection('conteggi').doc(c.id).update({dettaglio: JSON.parse(JSON.stringify(c.dettaglio))}); }catch(err){ toast('Errore: '+err.message,'err'); }
+    toast(v > 0 ? `${r.nome}: ${fmtN(v)} ${r.unita||''}` : `${r.nome} tolto dall'ordine`,'ok'); renderChiuso(); });
   main().querySelectorAll('[data-mano]').forEach(inp => inp.onchange = async () => {
     const r = (c.dettaglio||[]).find(x => x.id === inp.dataset.mano); if(!r) return;
     const v = Math.max(0, parseFloat((inp.value||'').replace(',','.')) || 0); r.ordine = v; delete r.tolto;
