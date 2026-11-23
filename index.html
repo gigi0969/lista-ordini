@@ -1321,7 +1321,8 @@ function editArticolo(id){
   modal(`<h2>${id?'Modifica articolo':'Nuovo articolo'}</h2>
     <label class="fld">Nome<input id="an" value="${esc(a.nome)}"></label>
     <label class="fld">Sezione<input id="asz" list="dl-sez" value="${esc(a.sezione)}"></label>
-    <label class="fld">Fornitore<input id="af" list="dl-forn" value="${esc(a.fornitore)}"></label>
+    <label class="fld">Fornitore<select id="af">${(a.fornitore ? [] : ['']).concat(forns.includes(a.fornitore) || !a.fornitore ? forns : [a.fornitore, ...forns]).map(f => `<option value="${esc(f)}"${f===a.fornitore?' selected':''}>${f ? esc(f) : 'scegli…'}</option>`).join('')}<option value="__nuovo">+ nuovo fornitore…</option></select></label>
+    <label class="fld" id="afn-w" style="display:none">Nome del nuovo fornitore<input id="afn"></label>
     <label class="fld">Unità di conteggio<select id="au">${units.map(u=>`<option${u===a.unita?' selected':''}>${esc(u)}</option>`).join('')}</select></label>
     <label class="fld">Ordine fisso: sotto il minimo ordina sempre questa quantità (es. 40 = un bancale; vuoto = calcolato fino al massimo)<input id="alot" inputmode="numeric" value="${a.lotto>0?a.lotto:''}"></label>
     <label class="fld">Cartone da: l'ordine si arrotonda a cartoni interi (es. 12 = si ordina 12, 24, 36…; vuoto = pezzi singoli)<input id="aconf" inputmode="numeric" value="${a.conf>1?a.conf:''}"></label>
@@ -1333,7 +1334,7 @@ function editArticolo(id){
     <datalist id="dl-forn">${forns.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
     <div class="acts">${id?'<button class="btn danger" id="adel">Elimina</button>':''}<span class="sp"></span><button class="btn" data-close>Annulla</button><button class="btn primary" id="asave">Salva</button></div>`, m => {
     m.querySelector('#asave').onclick = async () => {
-      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:$('#af').value.trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), conf:Math.max(0, parseInt($('#aconf').value)||0), ...($('#amano') ? {mano: $('#amano').checked} : {}), ...(() => { const v = Math.max(0, parseFloat(($('#aprz').value||'').replace(',','.'))||0), old = Number(a.prezzo)||0;
+      const d = {nome:$('#an').value.trim(), sezione:$('#asz').value.trim()||'Varie', fornitore:($('#af').value === '__nuovo' ? $('#afn').value : $('#af').value).trim(), unita:$('#au').value, lotto:Math.max(0, parseInt($('#alot').value)||0), conf:Math.max(0, parseInt($('#aconf').value)||0), ...($('#amano') ? {mano: $('#amano').checked} : {}), ...(() => { const v = Math.max(0, parseFloat(($('#aprz').value||'').replace(',','.'))||0), old = Number(a.prezzo)||0;
         return v === old ? {} : {prezzo:v, prezzoData:ymd(new Date()), prezzoPrec:old}; })(), diretto:$('#adir').checked, reparto:$('#arep').value};
       if(!d.nome){ toast('Inserisci il nome','err'); return; }
       if(id) await db.collection('articoli').doc(id).update(d);
@@ -1342,6 +1343,7 @@ function editArticolo(id){
         await db.collection('articoli').add(d); }
       closeModal(); toast('Articolo salvato','ok');
     };
+    m.querySelector('#af').onchange = e => { m.querySelector('#afn-w').style.display = e.target.value === '__nuovo' ? '' : 'none'; if(e.target.value === '__nuovo') m.querySelector('#afn').focus(); };
     const del = m.querySelector('#adel');
     if(del) del.onclick = async () => { if(!await ask(`Eliminare "${a.nome}" dal catalogo? Lo storico delle giacenze resta.`)) return;
       await db.collection('articoli').doc(id).delete(); delete S.catPending[id]; closeModal(); toast('Articolo eliminato','ok'); };
