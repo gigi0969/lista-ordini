@@ -789,7 +789,8 @@ async function chiudiConta(){
   /* Giacenza Sanfelici obbligatoria: l'ordine si calcola da lì */
   const OBBLIGATORI = ['Sanfelici','Sammarco','Artioli','Bernardo Legnami'];
   const missObb = miss.filter(r => { const a = S.contaArts.find(x => x.id === r.dataset.id); return a && OBBLIGATORI.includes(a.fornitore); });
-  if(missObb.length){
+  /* Luigi (admin) può chiudere anche una giacenza parziale: i non compilati non vengono ordinati */
+  if(missObb.length && !S.admin){
     missObb.forEach(r => r.classList.add('flash'));
     missObb[0].scrollIntoView({behavior:'smooth',block:'center'});
     toast(`Giacenza ${[...new Set(missObb.map(r => (S.contaArts.find(x => x.id === r.dataset.id)||{}).fornitore))].join(' e ')} obbligatoria: mancano ${missObb.length} articoli. Se un articolo è finito scrivi 0.`,'err'); return;
