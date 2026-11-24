@@ -265,7 +265,7 @@ const FUERTE_SEED = [
   ['Farine Apoza','Apoza','PZ','pizzeria',[],'Farina Lucia|Farina Tipo 1::0.5:1|Pizza Plus::1:11'],
   ['Dolci','Mammafiore','PZ','pizzeria',TRIO,'Babà al rum::1:7|Brownie::0.5:4|Caprese:Fetta:4:4|Pastiera:Fetta:4:4|Tiramisù:Fetta:4:4|Torta al pistacchio:Fetta:4:4|Torta della nonna:Fetta:4:4|Crema di pistacchio'],
   ['Verdura e frutta','Carmur','PZ','pizzeria',[],'Basilico:Cassa:0.5:1|Rucola:Borsa:0.5:1.5|Melanzane:KG:2:4|Peperoni:KG:3:5|Zucchine:KG:2:5|Carote:KG:3:8|Cipolla rossa:KG:2:6|Insalata cogollos:PZ:2:3|Pepino::0.5:2|Pomodorini:KG:0.5:1|Pomodoro grande:KG:3:6|Limoni::2:9|Lime::1:5|Erba buena::0.5:1|Mele::2:5|Pere::2:5|Arance::4:10'],
-  ['Megahielo','Megahielo','PZ','pizzeria',[],'Ghiaccio:Sacco:4:10|Patatine:KG:3:5'],
+  ['Megahielo','Megahielo','PZ','pizzeria',[],'Ghiaccio:Sacco:5:15|Patatine:Busta:2:4'],
   ['Liquori e vini HGR','HGR','Bottiglia','sala',[],'Amaro Ramazzotti::1|Aperol::2|Rhum Arehucas bianco::1|Rhum Arehucas rosso::1|Batida de coco::1|Baileys::2|Amaro del Capo::1|Brandy 103::1|Campari::1|Cynar::1|Disaronno::1|Fernet Branca::1|Gin Gordon\'s::1|Gin Tanqueray::1|Granatina::1|Grappa morbida::1|Grappa secca::1|Whisky Haig::1|Jägermeister::1|Liquirizia::1|Martini bianco::1|Martini rosso::1|Montenegro::1|Nocino::1|Passito|Rhum Miel::2|Sambuca::1|Vodka::1|Sangria::3|Prosecco Provetto::6|Vino rosato::6|Vino blanco spagnolo::6|Vino tinto spagnolo::6|Latte:PZ:2:4'],
   ['Vini e birre Mammafiore','Mammafiore','Bottiglia','sala',[],'Limoncino::0.5:1|Prosecco Conca d\'Oro|Chardonnay 1,5 lt::3:6|Chardonnay 0,75 lt::5:10|Montepulciano 1,5 lt::3:7|Montepulciano 0,75 lt::5:6|Birra Ichnusa:Cassa:1:20|Birra gluten free:Cassa'],
   ['Coca-Cola','Coca-Cola','Cassa','sala',[],'Appetizer:Bottiglia:6:24|Coca-Cola::0.5:2|Coca-Cola Zero::1:3|Fanta Limón::0.5:1.8|Fanta Naranja::0.5:2|Nestea limón::0.5:1.5|Nestea mango::0.5:1.5|Succo ananas::0.5:2|Succo mela::0.5:1.3|Succo pesca|Tonica::0.5:1.5|Coca-Cola lattina::0.5:2|Coca-Cola Zero lattina::1:3|Fanta lattina::0.5:1|Sprite::0.5:2'],
@@ -283,18 +283,20 @@ const MANO_SEED = ['Mozzarella','Bufala','Burrata','Stracciatella'];
 /* confezioni Fuerte: ghiaccio in borse da 5 sacchi, basilico a mezze casse */
 const FUERTE_CONF = {'Ghiaccio':5, 'Basilico':0.5, 'Provola':16 /* Mammafiore: cartone da 16 pz da 500 g, congelata */,
   'Bufala':8 /* 125 g x 8 */, 'Pelati Gustarosso':6 /* 2,5 kg x 6 */, 'Babà al rum':12 /* 130 g x 12 */,
-  'Patatine':10 /* Megahielo: papas congeladas 9x9, sempre 10 kg */,
+  /* Patatine: si contano a buste da 2,5 kg (vedi FIX_FUERTE) */
   'Appetizer':24 /* si contano le bottiglie, si ordina a casse da 24 */};
 /* Prezzi Mammafiore dalle fatture FVR26-19210/19917/20178/20632 (prezzo netto dopo sconto, IGIC esclusa), per unità di conteggio */
 const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpone':4.56,'Provola':4.88,'Grattugiato':16.99,
   'Crema tartufata':10.12,'Crema di zucca':4.87,'Friarielli':5.92,'Funghi champignon':4.96,'Funghi porcini':12.40,'Box pizza':28.42,'Caffè':16.49,
   'Pelati Gustarosso':5.95,'Piennolo':5.14,'Farina Caputo':37.22,'Limoncino':13.69,'Carciofi':12.84,'Babà al rum':1.70,'Caprese':26.04,'Pastiera':23.21,
   'Cuoppo':9.35,'Acciughe':18.07,'Montepulciano 0,75 lt':3.64,'Chardonnay 1,5 lt':5.56,'Aceto glassa':4.93,'Birra gluten free':40.76,
-  'Ghiaccio':0.95 /* Megahielo H. 60GR al sacco */,'Patatine':1.84 /* Megahielo al kg */};
+  'Ghiaccio':0.95 /* Megahielo H. 60GR al sacco */,'Patatine':4.60 /* busta 2,5 kg a 1,84 €/kg */};
 const PREZZI_FUERTE_DATA = '2026-11-19';
 /* applicate da "Aggiorna catalogo" anche agli articoli Fuerte già esistenti */
 const FIX_FUERTE = {'Appetizer': {unita:'Bottiglia', conf:24, ordUnita:['Cassa','Casse'], prezzo:0.87, prezzoData:'2026-11-23'},
   /* Carmur 23/11/2026: prezzi cambiati */
+  /* patatine contate a buste da 2,5 kg: nell'ordine anche i kg */
+  'Patatine': {unita:'Busta', conf:0, kgUnita:2.5, prezzo:4.60, prezzoData:'2026-11-24'},
   'Peperoni': {prezzo:3.40, prezzoData:'2026-11-23'}, 'Zucchine': {prezzo:3.10, prezzoData:'2026-11-23'}, 'Pomodorini': {prezzo:4.70, prezzoData:'2026-11-23'}};
 /* Carmur (fatture 03/11 e 20/11/2026), al kg o al pezzo */
 /* Coca-Cola EP fattura 2730289230 del 15/11/2026: netto sconti a cassa, cauzione cassa+vuoti (7,50) esclusa */
@@ -337,6 +339,7 @@ const FUERTE_LOTTO = {'Provola':16 /* sotto scorta: sempre 1 cartone */,
   'Caprese':1, 'Pastiera':1, 'Tiramisù':1, 'Torta al pistacchio':1, 'Torta della nonna':1};
 const qtaTxt = r => { const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0, ou = art && art.ordUnita;
   if(art && art.ordTorte) return `${fmtN(r.ordine)} ${r.ordine === 1 ? 'Torta' : 'Torte'}`;
+  if(art && art.kgUnita) return `${fmtN(r.ordine)} ${r.ordine === 1 ? 'Busta' : 'Buste'} (${fmtN(r.ordine * art.kgUnita)} kg)`;
   if(ou && cf > 1 && r.ordine % cf === 0){ const n = r.ordine / cf; return `${fmtN(n)} ${n === 1 ? ou[0] : ou[1]}` + (ORD_SENZA_DETTAGLIO.includes(r.nome) ? '' : ` (${fmtN(r.ordine)} ${r.unita||''})`); }
   return `${fmtN(r.ordine)} ${r.unita === 'Torta' && r.ordine !== 1 ? 'Torte' : (r.unita||'')}`; };
 const isMano = id => { const a = S.articoli.find(x => x.id === id); return !!(a && a.mano); };
