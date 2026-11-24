@@ -413,7 +413,9 @@ function artsPer(sede, rep, data){
   if(rep === MAG30.id) return S.articoli.filter(a => a.sezione === MAG30.sezione && !MAG30.comuni.includes(a.nome) && attivo(a, MAG30.sedeScorte) && inGiorno(a,data));
   return S.articoli.filter(a => attivo(a,sede) && (soloGiac(sede) ? rep === 'pizzeria' : repDi(a)===rep) && inGiorno(a,data) && !(sede === MAG30.sedeScorte && a.sezione === MAG30.sezione));
 }
-const rigaTxt = r => `- ${qtaTxt(r).replace(/ \((.*)\)$/, '')} ${r.nome}${/\(/.test(qtaTxt(r)) ? ' ' + qtaTxt(r).match(/\(.*\)$/)[0] : ''}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
+/* "1 Torta Torta al pistacchio" → "1 Torta al pistacchio" */
+const senzaDoppio = (q, nome) => { q = q.replace(/^([\d.,]+) PZ$/, '$1'); /* "5 Mozzarella", non "5 PZ Mozzarella" */ const m = q.match(/^([\d.,]+) (\S+)$/); return m && nome.toLowerCase().startsWith(m[2].toLowerCase() + ' ') ? `${m[1]} ${nome}` : `${q} ${nome}`; };
+const rigaTxt = r => `- ${senzaDoppio(qtaTxt(r).replace(/ \((.*)\)$/, ''), r.nome)}${/\(/.test(qtaTxt(r)) ? ' ' + qtaTxt(r).match(/\(.*\)$/)[0] : ''}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
 /* liste con la pizzeria "vera": quelle del magazzino 3.0 contano per la 3.0 */
 async function caricaListe(sede){
   const q = (sede === 'tutte' || sede === MAG30.sedeScorte || sede === MAG30.sedeOspite) ? db.collection('conteggi') : db.collection('conteggi').where('sede','==',sede);
@@ -864,10 +866,10 @@ const NOMI_ES = {'Carta mani':'Papel secamanos','Bobine':'Bobinas de papel','Car
 const UNITA_ES = {'Torta':['tarta','tartas'],'Fetta':['porción','porciones'],'PZ':['unidad','unidades'],'CT':['caja','cajas'],'Cassa':['caja','cajas'],'KG':['kg','kg'],'Borsa':['bolsa','bolsas'],'Sacco':['saco','sacos'],'Bottiglia':['botella','botellas'],'Cartone':['caja','cajas']};
 const GIORNI_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 function testoEs(c,f,list){ const d = new Date(c.data + 'T12:00:00');
-  return `*PEDIDO ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n${GIORNI_ES[d.getDay()]} ${fmt(c.data)}\n\n` + list.map(r => { const u = UNITA_ES[r.unita] || [r.unita, r.unita];
+  return `*PEDIDO ${f.toUpperCase()}*\n${sedeNome(c.sede)}\n\n` + list.map(r => { const u = UNITA_ES[r.unita] || [r.unita, r.unita];
     const art = S.articoli.find(x => x.id === r.id), cf = art ? Number(art.conf) || 0 : 0, ou = art && art.ordUnita;
     if(ou && cf > 1 && r.ordine % cf === 0){ const n = r.ordine / cf, ue = UNITA_ES[ou[0]] || [ou[0], ou[1]]; return `- ${fmtN(n)} ${n === 1 ? ue[0] : ue[1]} ${NOMI_ES[r.nome] || r.nome}`; }
-    const q = r.ordine === 0.5 && u[0] !== 'kg' ? `media ${u[0]}` : `${fmtN(r.ordine)} ${r.ordine === 1 ? u[0] : u[1]}`;
+    const q = (r.unita || 'PZ') === 'PZ' ? fmtN(r.ordine) : r.ordine === 0.5 && u[0] !== 'kg' ? `media ${u[0]}` : `${fmtN(r.ordine)} ${r.ordine === 1 ? u[0] : u[1]}`;
     return `- ${q} ${u[0] === 'kg' ? 'de ' : ''}${NOMI_ES[r.nome] || r.nome}`; }).join('\n') + '\n\nGracias';
 }
 function testoFornitore(c,f,list){ const al = righeAltro(c,f);
@@ -875,7 +877,8 @@ function testoFornitore(c,f,list){ const al = righeAltro(c,f);
   if(!S.admin && !al.length) return testoOrdine(c,f,list);
   const sez = [...groupBy([...list, ...al], r => r.sezione || 'Altro')];
   const nomeS = c.reparto === MAG30.id ? `${sedeNome(MAG30.sedeScorte)} (magazzino alla 2.0) – fattura ${FATT.amendola}` : sedeNome(c.sede);
-  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${nomeS}\nLista di ${dayName(c.data)} ${fmt(c.data)}\n` + sez.map(([s,l]) => `\n*${(s === 'Sanfelici' && f !== 'Sanfelici' ? f : s).toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n'); }
+  /* ai fornitori niente "Lista di domenica…": la data della giacenza li confonde */
+  return `*ORDINE ${f.toUpperCase()}${S.admin ? '' : ' – TUTTA LA PIZZERIA'}*\n${nomeS}\n${S.admin ? '' : `Lista di ${dayName(c.data)} ${fmt(c.data)}\n`}` + sez.map(([s,l]) => `\n*${(s === 'Sanfelici' && f !== 'Sanfelici' ? f : s).toUpperCase()}*\n` + l.map(rigaTxt).join('\n')).join('\n'); }
 
 /* Le liste chiuse prima del 9/11 non hanno gli stati di invio: si considerano gestite */
 const STATI_DAL = '2026-11-09';
