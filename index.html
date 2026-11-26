@@ -569,7 +569,7 @@ async function openSede(sede,data){
   let REPS = repartiDi(sede).filter(r => r.id !== MAG30.id || artsPer(sede, r.id, data).length);
   /* Fuerte: le vecchie liste "Bar e sala" fatte prima della lista unica restano apribili */
   if(soloGiac(sede)) REPS = [...REPS, {id:'sala', nome:'Bar e sala (lista separata)'}];
-  try{ snaps = await Promise.all(REPS.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); }
+  try{ snaps = await Promise.all(REPS.map(r => db.collection('conteggi').doc(`${sede}_${data}_${r.id}`).get())); const t = Date.now(); snaps.forEach(sn => { SNAPS[sn.id] = {t, snap: sn}; }); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere le giacenze (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   if(soloGiac(sede) && !snaps[snaps.length-1].exists){ REPS = REPS.slice(0,-1); snaps = snaps.slice(0,-1); }
   if(S.view!=='sede') return;
@@ -586,7 +586,7 @@ async function openSede(sede,data){
       const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Tocca per aprire la lista di ${dayName(bd)} e chiuderla`; }
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
   main().onclick = e => { if(e.target.closest('[data-fattlibera]')){ fatturaLibera(sede); return; } const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
-    const b = e.target.closest('[data-r]'); if(!b) return; const d = blocco(b.dataset.r);
+    const b = e.target.closest('[data-r]'); if(!b) return; S.daSede = Date.now(); const d = blocco(b.dataset.r);
     if(d){ toast(`Prima chiudi e invia la lista di ${dayName(d)} ${fmt(d)}`,'err'); openConta(sede, d, b.dataset.r); return; }
     openConta(sede, data, b.dataset.r); };
 }
@@ -601,10 +601,18 @@ function statoConta(sn, sede, rep, data, altroSn){
 }
 
 /* Quantità abituali: media degli ordini (quando ordinato) nelle ultime 8 liste chiuse dello stesso reparto */
+/* storico di una sede: letto una volta e tenuto 3 minuti, così cambiare reparto è immediato */
+const STORICO = {};
+async function storicoSede(sede){ const c = STORICO[sede]; if(c && Date.now() - c.t < 180000) return c.qs;
+  const qs = await db.collection('conteggi').where('sede','==',sede).get(); STORICO[sede] = {t: Date.now(), qs}; return qs; }
+/* liste lette dalla pagina della pizzeria: riusate per 20 secondi quando apri un reparto */
+const SNAPS = {};
+async function leggiLista(id, cache){ const c = SNAPS[id]; if(cache && c && Date.now() - c.t < 20000) return c.snap;
+  const snap = await db.collection('conteggi').doc(id).get(); SNAPS[id] = {t: Date.now(), snap}; return snap; }
 async function caricaAbituali(sede, rep, data){
   S.abituali = {};
   try{
-    const qs = await db.collection('conteggi').where('sede','==',sede).get();
+    const qs = await storicoSede(sede);
     const liste = qs.docs.map(d=>d.data()).filter(d => d.stato==='chiuso' && d.reparto===rep && d.data < data && d.dettaglio).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,8);
     const acc = {};
     liste.forEach(l => l.dettaglio.forEach(r => { if(r.ordine > 0){ (acc[r.id] = acc[r.id] || []).push(r.ordine); } }));
@@ -617,7 +625,7 @@ const insolito = (a,v) => isDir(a) && typeof v === 'number' && S.abituali && S.a
 async function caricaProgOrdinati(sede, data, escludiId){
   S.progOrdinati = {};
   try{
-    const qs = await db.collection('conteggi').where('sede','==',sede).get();
+    const qs = await storicoSede(sede);
     FORNITORI_PROGRAMMATI.forEach(f => { const d = (S.consegne||{})[f]; if(!d) return; const [da,a2] = finestraProg(d);
       S.progOrdinati[f] = qs.docs.some(x => { const c = x.data(); return x.id !== escludiId && c.stato==='chiuso' && c.data >= da && c.data <= a2 && (c.dettaglio||[]).some(r => r.fornitore===f && typeof r.g==='number'); }); });
   }catch(e){}
@@ -635,13 +643,15 @@ async function openConta(sede,data,rep){
   if(S.admin) setSedeAttiva(sede);
   view('conta','<p class="loading">Caricamento…</p>');
   const id = `${sede}_${data}_${rep}`; let snap;
-  try{ snap = await db.collection('conteggi').doc(id).get(); }
+  const daSede = !!S.daSede && Date.now() - S.daSede < 1500; S.daSede = 0;
+  const arA = REPARTI.find(r => r.id !== rep), altroP = rep !== MAG30.id && arA ? leggiLista(`${sede}_${data}_${arA.id}`, daSede).catch(() => null) : Promise.resolve(null);
+  try{ snap = await leggiLista(id, daSede); }
   catch(e){ main().innerHTML = `<p class="loading">Impossibile leggere la giacenza (${esc(e.message)}). Controlla la connessione e riprova.</p>`; return; }
   S.conta = snap.exists ? {id, ...snap.data()} : {id, sede, data, reparto:rep, stato:'bozza', operatore:'', righe:{}};
   S.conta.righe = S.conta.righe || {}; S.altro = null;
   if(S.conta.stato === 'chiuso' && rep !== MAG30.id){ const ar = REPARTI.find(r => r.id !== rep);
-    try{ const sa = await db.collection('conteggi').doc(`${sede}_${data}_${ar.id}`).get(); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){} }
-  if(S.conta.stato !== 'chiuso'){ await caricaAbituali(sede, rep, data); await caricaProgOrdinati(sede, data, id); }
+    try{ const sa = await altroP; if(sa && sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){} }
+  if(S.conta.stato !== 'chiuso') await Promise.all([caricaAbituali(sede, rep, data), caricaProgOrdinati(sede, data, id)]);
   S.conta.stato === 'chiuso' ? renderChiuso() : renderConta();
 }
 
@@ -827,7 +837,7 @@ async function chiudiConta(){
     const write = db.collection('conteggi').doc(c.id).set(pulito);
     await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
   catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent=INOLTRO_DIRETTO ? 'Chiudi lista' : 'Chiudi lista e invia ordini'; return; }
-  S.conta = {id:c.id, ...doc}; S.altro = null;
+  S.conta = {id:c.id, ...doc}; S.altro = null; delete STORICO[c.sede]; Object.keys(SNAPS).forEach(k => delete SNAPS[k]);
   /* si apre WhatsApp con l'avviso per Luigi già scritto: basta premere Invia */
   if(!S.admin && !offline && (INOLTRO_DIRETTO || soloGiac(c.sede))) try{ window.open(waUrl(testoAvviso(S.conta)), '_blank'); }catch(e){}
   if(c.reparto !== MAG30.id) try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
