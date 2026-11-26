@@ -956,7 +956,7 @@ function renderChiuso(){
         if(!conP.length) return ''; const tot = conP.reduce((t,r) => t + r.ordine * prezzoDi(r.id), 0), mn = MIN_ORDINE[f];
         return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${conP.length < tutte.length ? ` <span class="muted">(${tutte.length - conP.length} articoli senza prezzo)</span>` : ''}${mn && tot < mn ? `<br><b style="color:var(--tom)">Sotto il minimo d'ordine ${esc(f)} di ${eur(mn)}</b>` : ''}</p>`; })() : ''}
     ${(() => { const al = righeAltro(c,f);
-        if(al.length) return `<p class="muted" style="margin:.4rem 0">${list.length ? '+ ' : ''}${al.length} articoli ${esc(f)} di ${esc(an)}: ${S.admin ? 'li inoltri' : 'partono'} insieme in un solo messaggio.</p>`;
+        if(al.length) return `<p class="muted" style="margin:.4rem 0 .2rem">${list.length ? '+ ' : ''}${al.length} articoli ${esc(f)} di <b>${esc(an)}</b>, ${S.admin ? 'li inoltri' : 'partono'} insieme in un solo messaggio:</p><ul style="opacity:.75">${al.map(r => `<li><b>${fmtN(r.ordine)} ${esc(r.unita||'')}</b>${esc(r.nome)}</li>`).join('')}</ul>`;
         if(!fatto && inAttesa(c,f,altroDoc(c))) return `<p class="muted" style="margin:.4rem 0">${esc(f)} parte in un solo messaggio per tutta la pizzeria: ${INOLTRO_DIRETTO && S.admin ? `aspetta che chiudano anche la lista ${esc(an)}, poi lo inoltri tutto insieme` : `lo manda ${esc(an)} quando chiude la sua lista`}.${S.admin ? '' : ` Se oggi ${esc(an)} non fa la lista, premi <b>Invia lo stesso</b>.`}</p>`;
         return ''; })()}
     <div class="ord-acts">${S.admin
