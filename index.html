@@ -425,9 +425,14 @@ function artsPer(sede, rep, data){
 const senzaDoppio = (q, nome) => { q = q.replace(/^([\d.,]+) PZ$/, '$1'); /* "5 Mozzarella", non "5 PZ Mozzarella" */ const m = q.match(/^([\d.,]+) (\S+)$/); return m && nome.toLowerCase().startsWith(m[2].toLowerCase() + ' ') ? `${m[1]} ${nome}` : `${q} ${nome}`; };
 const rigaTxt = r => `- ${senzaDoppio(qtaTxt(r).replace(/ \((.*)\)$/, ''), r.nome)}${/\(/.test(qtaTxt(r)) ? ' ' + qtaTxt(r).match(/\(.*\)$/)[0] : ''}${r.fattura ? ` (fattura ${FATT[r.fattura]})` : ''}`;
 /* liste con la pizzeria "vera": quelle del magazzino 3.0 contano per la 3.0 */
-async function caricaListe(sede){
-  const q = (sede === 'tutte' || sede === MAG30.sedeScorte || sede === MAG30.sedeOspite) ? db.collection('conteggi') : db.collection('conteggi').where('sede','==',sede);
-  const qs = await q.get();
+/* storico liste per Ordini/Magazzino/Storico: tenuto 2 minuti, così passare da una scheda all'altra è immediato */
+const LISTE_CACHE = {};
+async function caricaListe(sede, recenti){
+  const cKey = sede + (recenti ? '~r' : ''), cc = LISTE_CACHE[cKey]; let qs;
+  if(cc && Date.now() - cc.t < 120000) qs = cc.qs;
+  else { const q = recenti ? db.collection('conteggi').where('data','>=',addGiorni(ymd(oggiLista()),-42))
+      : (sede === 'tutte' || sede === MAG30.sedeScorte || sede === MAG30.sedeOspite) ? db.collection('conteggi') : db.collection('conteggi').where('sede','==',sede);
+    qs = await q.get(); LISTE_CACHE[cKey] = {t: Date.now(), qs}; }
   return qs.docs.map(d => d.data()).map(d => d.reparto === MAG30.id ? {...d, sede: MAG30.sedeScorte} : d).filter(d => sede === 'tutte' || d.sede === sede);
 }
 /* Fornitori alternativi: per questi articoli, in 2.0 e 3.0, scegli tu a chi mandare l'ordine */
@@ -837,7 +842,7 @@ async function chiudiConta(){
     const write = db.collection('conteggi').doc(c.id).set(pulito);
     await Promise.race([write, new Promise(r=>setTimeout(()=>{offline=true;r();},5000))]); }
   catch(e){ toast('Chiusura non riuscita: '+e.message,'err'); btn.disabled=false; btn.textContent=INOLTRO_DIRETTO ? 'Chiudi lista' : 'Chiudi lista e invia ordini'; return; }
-  S.conta = {id:c.id, ...doc}; S.altro = null; delete STORICO[c.sede]; Object.keys(SNAPS).forEach(k => delete SNAPS[k]);
+  S.conta = {id:c.id, ...doc}; S.altro = null; delete STORICO[c.sede]; Object.keys(LISTE_CACHE).forEach(k => delete LISTE_CACHE[k]); Object.keys(SNAPS).forEach(k => delete SNAPS[k]);
   /* si apre WhatsApp con l'avviso per Luigi già scritto: basta premere Invia */
   if(!S.admin && !offline && (INOLTRO_DIRETTO || soloGiac(c.sede))) try{ window.open(waUrl(testoAvviso(S.conta)), '_blank'); }catch(e){}
   if(c.reparto !== MAG30.id) try{ const ar = REPARTI.find(r => r.id !== c.reparto); const sa = await Promise.race([db.collection('conteggi').doc(`${c.sede}_${c.data}_${ar.id}`).get(), new Promise((_,rj)=>setTimeout(()=>rj(),4000))]); if(sa.exists) S.altro = {id: sa.id, ...sa.data()}; }catch(e){}
@@ -1278,7 +1283,8 @@ async function renderSettimana(){
     S.consegne = {...(S.consegne||{}), [i.dataset.cons]: i.value || null};
     await db.collection('config').doc('consegne').set(S.consegne); toast('Consegna salvata','ok'); renderSettimana(); });
   let docs;
-  try{ const qs = await db.collection('conteggi').get(); docs = qs.docs.map(d => ({id:d.id, ...d.data()})).filter(d => d.data >= da); }
+  /* solo le liste degli ultimi 7 giorni, non tutto lo storico: molto più veloce */
+  try{ const qs = await db.collection('conteggi').where('data','>=',da).get(); docs = qs.docs.map(d => ({id:d.id, ...d.data()})).filter(d => d.data >= da); }
   catch(e){ $('#sw').innerHTML = `<p class="loading">Errore: ${esc(e.message)}</p>`; return; }
   if(S.view!=='settimana') return;
   $('#sw').innerHTML = SEDI.map(s => {
@@ -1324,7 +1330,7 @@ async function renderOrdini(){
     <div id="ob"><p class="loading">Caricamento…</p></div>`);
   $('#os').onchange = e => { setSedeAttiva(e.target.value); renderOrdini(); };
   if($('#oo')) $('#oo').onchange = e => { S.orSolo = e.target.checked; renderOrdini(); };
-  const tutteL = await caricaListe(sede); if(S.view !== 'ordini') return;
+  const tutteL = await caricaListe(sede, sede === 'tutte'); if(S.view !== 'ordini') return;
   const liste = tutteL.filter(d => d.stato==='chiuso' && d.dettaglio);
   const info = {}; S.articoli.forEach(a => info[a.id] = a);
   const sett = {}; /* sett[sede][settimana][id] = qta */
