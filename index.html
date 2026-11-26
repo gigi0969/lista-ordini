@@ -30,7 +30,7 @@ button,input,select{font:inherit;color:inherit}
 .tabs{display:flex;gap:.2rem;overflow-x:auto;padding:0 .8rem;background:var(--card);border-bottom:1px solid var(--line);scrollbar-width:none}
 .tabs button{border:0;background:none;padding:.8rem .8rem .6rem;font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--basil)}
-main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
+main{max-width:1060px;margin:0 auto;padding:1.2rem 1rem 2rem}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:.5rem 1.1rem;border:1.5px solid var(--line);background:var(--card);border-radius:8px;font-weight:700;cursor:pointer;text-decoration:none;color:var(--ink)}
 .btn.primary{background:var(--basil);border-color:var(--basil);color:#fff}
@@ -64,7 +64,7 @@ main{max-width:980px;margin:0 auto;padding:1.2rem 1rem 2rem}
 .sez{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:1rem;scroll-margin-top:135px;overflow:hidden}
 .sez h2{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.7rem 1rem;border-bottom:1px solid var(--line);background:var(--soft)}
 .sez-n{font-family:'Atkinson Hyperlegible',sans-serif;font-size:.85rem;color:var(--muted);font-weight:400}
-.row{display:grid;grid-template-columns:1fr auto 2.4rem;align-items:center;gap:.6rem;padding:.45rem .8rem .45rem .9rem;border-bottom:1px solid #E8ECE6;border-left:5px solid transparent;transition:background .25s}
+.row{display:grid;grid-template-columns:1fr auto minmax(2.4rem,max-content);align-items:center;gap:.6rem;padding:.45rem .8rem .45rem .9rem;border-bottom:1px solid #E8ECE6;border-left:5px solid transparent;transition:background .25s}
 .row:last-child{border-bottom:0}
 .row.done{border-left-color:var(--basil)}
 .row.flash{background:var(--tom-s);border-left-color:var(--tom)}
@@ -266,7 +266,7 @@ const FUERTE_SEED = [
   ['Dolci','Mammafiore','PZ','pizzeria',TRIO,'Babà al rum::1:7|Brownie::0.5:4|Caprese:Fetta:4:4|Pastiera:Fetta:4:4|Tiramisù:Fetta:4:4|Torta al pistacchio:Fetta:4:4|Torta della nonna:Fetta:4:4|Crema di pistacchio'],
   ['Verdura e frutta','Carmur','PZ','pizzeria',[],'Basilico:Cassa:0.5:1|Rucola:Borsa:0.5:1.5|Melanzane:KG:2:4|Peperoni:KG:3:5|Zucchine:KG:2:5|Carote:KG:3:8|Cipolla rossa:KG:2:6|Insalata cogollos:PZ:2:3|Pepino::0.5:2|Pomodorini:KG:0.5:1|Pomodoro grande:KG:3:6|Limoni::2:9|Lime::1:5|Erba buena::0.5:1|Mele::2:5|Pere::2:5|Arance::4:10'],
   ['Megahielo','Megahielo','PZ','pizzeria',[],'Ghiaccio:Sacco:5:15|Patatine:Busta:2:4'],
-  ['Liquori e vini HGR','HGR','Bottiglia','sala',[],'Amaro Ramazzotti::1|Aperol::2|Rhum Arehucas bianco::1|Rhum Arehucas rosso::1|Batida de coco::1|Baileys::2|Amaro del Capo::1|Brandy 103::1|Campari::1|Cynar::1|Disaronno::1|Fernet Branca::1|Gin Gordon\'s::1|Gin Tanqueray::1|Granatina::1|Grappa morbida::1|Grappa secca::1|Whisky Haig::1|Jägermeister::1|Liquirizia::1|Martini bianco::1|Martini rosso::1|Montenegro::1|Nocino::1|Passito|Rhum Miel::2|Sambuca::1|Vodka::1|Sangria::3|Prosecco Provetto::6|Vino rosato::6|Vino blanco spagnolo::6|Vino tinto spagnolo::6|Latte:PZ:2:4'],
+  ['Liquori e vini HGR','HGR','Bottiglia','sala',['SDM Food'],'Amaro Ramazzotti::1|Aperol::2|Rhum Arehucas bianco::1|Rhum Arehucas rosso::1|Batida de coco::1|Baileys::2|Amaro del Capo::1|Brandy 103::1|Campari::1|Cynar::1|Disaronno::1|Fernet Branca::1|Gin Gordon\'s::1|Gin Tanqueray::1|Granatina::1|Grappa morbida::1|Grappa secca::1|Whisky Haig::1|Jägermeister::1|Liquirizia::1|Martini bianco::1|Martini rosso::1|Montenegro::1|Nocino::1|Passito|Rhum Miel::2|Sambuca::1|Vodka::1|Sangria::3|Prosecco Provetto::6|Vino rosato::6|Vino blanco spagnolo::6|Vino tinto spagnolo::6|Latte:PZ:2:4'],
   ['Vini e birre Mammafiore','Mammafiore','Bottiglia','sala',[],'Limoncino::0.5:1|Prosecco Conca d\'Oro|Chardonnay 1,5 lt::3:6|Chardonnay 0,75 lt::5:10|Montepulciano 1,5 lt::3:7|Montepulciano 0,75 lt::5:6|Birra Ichnusa:Cassa:1:20|Birra gluten free:Cassa'],
   ['Coca-Cola','Coca-Cola','Cassa','sala',[],'Appetizer:Bottiglia:6:24|Coca-Cola::0.5:2|Coca-Cola Zero::1:3|Fanta Limón::0.5:1.8|Fanta Naranja::0.5:2|Nestea limón::0.5:1.5|Nestea mango::0.5:1.5|Succo ananas::0.5:2|Succo mela::0.5:1.3|Succo pesca|Tonica::0.5:1.5|Coca-Cola lattina::0.5:2|Coca-Cola Zero lattina::1:3|Fanta lattina::0.5:1|Sprite::0.5:2'],
   ['Acqua Firgas','Firgas','Cassa','sala',[],'Acqua frizzante vetro::1.5:3|Acqua naturale vetro::1:4|Boccione acqua impasto:PZ:2:4|Acqua personale gas::2:5|Acqua personale naturale|Acqua 0,50 naturale|Acqua 0,50 gas'],
@@ -294,6 +294,9 @@ const PREZZI_FUERTE = {'Bufala':1.89,'Mozzarella':24.94,'Ricotta':1.54,'Mascarpo
 const PREZZI_FUERTE_DATA = '2026-11-19';
 /* applicate da "Aggiorna catalogo" anche agli articoli Fuerte già esistenti */
 const FIX_FUERTE = {'Appetizer': {unita:'Bottiglia', conf:24, ordUnita:['Cassa','Casse'], prezzo:0.87, prezzoData:'2026-11-23'},
+  /* birre Mammafiore: si contano le bottiglie, si ordinano cartoni interi da 24 */
+  'Birra Ichnusa': {unita:'Bottiglia', conf:24, ordUnita:['Cartone','Cartoni']},
+  'Birra gluten free': {unita:'Bottiglia', conf:24, ordUnita:['Cartone','Cartoni'], prezzo:1.70, prezzoData:'2026-11-26'},
   /* Carmur 23/11/2026: prezzi cambiati */
   /* patatine contate a buste da 2,5 kg: nell'ordine anche i kg */
   'Patatine': {unita:'Busta', conf:0, kgUnita:2.5, prezzo:4.60, prezzoData:'2026-11-24'},
@@ -327,7 +330,8 @@ const PREZZI_ALT_FUERTE = {
     'Bufala':2.07 /* DOP 125 g */, 'Cotto':26.65 /* Mamma Tina circa 4,1 kg a 6,49 €/kg (26/11) */, 'Pesto di pistacchio':34.20 /* Re Verde 1 kg (26/11) */,
     'Torta della nonna':24.70 /* Bindi 14 fette 1,3 kg, a torta */, 'Torta al pistacchio':30.00 /* Bindi pistacchio e cioccolato 1,2 kg (19/11) */},
   'SDM Food': {'Bufala':2.10 /* DOP 125 g */, 'Burrata':2.40 /* Valco 125 g */, 'Ricotta':8.85 /* 1,5 kg */, 'Coppa':22.90 /* al kg */,
-    'Crudo':44.14 /* mattonella circa 2,6 kg a 16,90 €/kg */, 'Pesto di pistacchio':17.90 /* salsa vaso 520 g */}};
+    'Crudo':44.14 /* mattonella circa 2,6 kg a 16,90 €/kg */, 'Pesto di pistacchio':17.90 /* salsa vaso 520 g */,
+    'Rhum Arehucas bianco':10.20, 'Rhum Arehucas rosso':9.95 /* Arehucas oro, fattura SDM 03/11 */}};
 const prezzoF = (r, f) => { const art = S.articoli.find(x => x.id === r.id); const p = (PREZZI_ALT_FUERTE[f]||{})[r.nome];
   if(p) return p; return art && f === art.fornitore ? prezzoDi(r.id) : 0; };
 /* come si chiama la confezione nell'ordine: "1 Cartone Provola (16 PZ)", "2 Borse Ghiaccio (10 Sacco)" */
@@ -574,14 +578,14 @@ async function openSede(sede,data){
   /* lista vecchia ancora aperta ma quella di oggi già iniziata: non blocca, ma si deve poter aprire per finirla */
   const vecchie = !S.admin && data === ymd(oggiLista()) ? REPS.filter(r => (S.bloccoRep||{})[r.id] && !blocco(r.id)).map(r => [r.id, S.bloccoRep[r.id]]) : [];
   view('sede', `${S.admin?'<button class="link back" data-back>Indietro</button>':''}
-    <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>
+    <h1>${esc(sedeNome(sede))}</h1><p class="muted">Lista di ${dayName(data)} ${fmt(data)}. Scegli il reparto.</p>${S.admin && soloGiac(sede) ? '<p><button class="btn" data-fattlibera>📷 Fattura senza ordine</button></p>' : ''}
     ${blocchi.length ? `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${blocchi.map(([r,d]) => `${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da chiudere e inviare. Non puoi fare la lista nuova finché non la chiudi (se non c'è niente da ordinare, chiudila vuota).`).join('<br>')}</p>` : ''}
     ${vecchie.map(([r,d]) => `<p class="note" style="background:var(--tom-s);color:var(--tom);font-weight:700">${repNome(r)}: c'è ancora la lista di ${dayName(d)} ${fmt(d)} da finire e chiudere. <button class="btn" data-apri="${d}" style="margin-left:.5rem">Apri la lista di ${dayName(d)}</button></p>`).join('')}
     ${!S.admin && data !== ymd(oggiLista()) ? `<p class="note">Stai guardando la lista di ${dayName(data)} ${fmt(data)}. <button class="link" data-apri="${ymd(oggiLista())}">Torna alla lista di oggi</button></p>` : ''}
     <div class="sedi-grid" style="margin-top:1rem">${REPS.map((r,i) => { const st = statoConta(snaps[i], sede, r.id, data, i < 2 ? snaps[1-i] : null);
       const bd = blocco(r.id); if(bd){ st.stato = 'Prima chiudi la vecchia'; st.cls = 'wip'; st.info = `Tocca per aprire la lista di ${dayName(bd)} e chiuderla`; }
       return `<button class="sede-card ${st.cls}" data-r="${r.id}" style="min-height:130px"><span class="sc-name">${r.nome}</span><span class="pill ${st.cls}">${st.stato}</span><span class="sc-info">${st.info}</span></button>`; }).join('')}</div>`);
-  main().onclick = e => { const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
+  main().onclick = e => { if(e.target.closest('[data-fattlibera]')){ fatturaLibera(sede); return; } const o = e.target.closest('[data-apri]'); if(o){ openSede(sede, o.dataset.apri); return; }
     const b = e.target.closest('[data-r]'); if(!b) return; const d = blocco(b.dataset.r);
     if(d){ toast(`Prima chiudi e invia la lista di ${dayName(d)} ${fmt(d)}`,'err'); openConta(sede, d, b.dataset.r); return; }
     openConta(sede, data, b.dataset.r); };
@@ -1056,13 +1060,14 @@ function caricaFattura(c, f, list){
       const j = await resp.json().catch(() => ({}));
       if(!resp.ok || !j.fattura) throw new Error(j.error || ('errore ' + resp.status));
       await mostraFattura(c, f, j.fattura, foto);
-    }catch(err){ modal(`<h2 style="margin-top:0">Fattura non letta</h2><p>${esc(err.message)}</p><p class="muted small">Riprova con una foto più nitida, dritta e con tutta la fattura nell'inquadratura.</p><div class="acts"><button class="btn" data-close>Chiudi</button></div>`); }
+    }catch(err){ const msg = /fetch|load failed|network/i.test(err.message) ? 'La lettura ha impiegato troppo tempo o la connessione si è interrotta. Riprova tra un momento.' : err.message;
+      modal(`<h2 style="margin-top:0">Fattura non letta</h2><p>${esc(msg)}</p><p class="muted small">Riprova con una foto più nitida, dritta e con tutta la fattura nell'inquadratura.</p><div class="acts"><button class="btn" data-close>Chiudi</button></div>`); }
   };
   inp.click();
 }
 
 async function mostraFattura(c, f, fat, foto){
-  const righe = fat.righe || [], confronto = fat.confronto || [], avvisi = [...(fat.avvisi || [])];
+  const righe = fat.righe || [], confronto = c.id ? (fat.confronto || []) : [], avvisi = [...(fat.avvisi || [])];
   /* prezzi e sconti rispetto all'ultima fattura dello stesso fornitore */
   let prec = {}; try{ const s = await db.collection('prezzi_fornitori').doc(slugF(f)).get(); if(s.exists) prec = s.data().prezzi || {}; }catch(e){}
   const chiave = r => String(r.descrizione||'').toUpperCase().replace(/\s+/g,' ').trim();
@@ -1075,10 +1080,10 @@ async function mostraFattura(c, f, fat, foto){
   const pctxt = v => v ? ` −${fmtN(v)}%` : '';
   modal(`<h2 style="margin-top:0">${esc(f)} · fattura ${esc(fat.numero||'?')} del ${fat.data ? fmt(fat.data) : '?'}</h2>
     <p>Imponibile <b>${eur(+fat.imponibile||0)}</b> · imposta ${eur(+fat.imposta||0)} · totale <b>${eur(+fat.totale||0)}</b></p>
-    <h3 class="h3">Confronto con l'ordine ${problemi.length ? `<span class="pill todo">${problemi.length} da controllare</span>` : '<span class="pill ok">tutto giusto</span>'}</h3>
+    ${c.id ? '' : '<p class="muted small">Fattura senza ordine: controllo solo di prezzi e conti.</p>'}<div${c.id ? '' : ' hidden'}><h3 class="h3">Confronto con l'ordine ${problemi.length ? `<span class="pill todo">${problemi.length} da controllare</span>` : '<span class="pill ok">tutto giusto</span>'}</h3>
     <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th><th>Ordinato</th><th>Arrivato</th><th>Esito</th></tr></thead><tbody>
     ${confronto.map(x => { const e = ESITI[x.esito] || ['wip', x.esito]; return `<tr><td>${esc(x.articolo||'')}${x.nota ? `<br><small class="muted">${esc(x.nota)}</small>` : ''}</td><td>${esc(x.ordinato||'–')}</td><td>${esc(x.consegnato||'–')}</td><td><span class="pill ${e[0]}">${esc(e[1])}</span></td></tr>`; }).join('')}
-    </tbody></table></div>
+    </tbody></table></div></div>
     ${cambi.length ? `<h3 class="h3">Prezzi cambiati dall'ultima fattura</h3><ul>${cambi.map(x => `<li>${esc(x.descrizione)}: ${eur(x.prima.prezzo)}${pctxt(x.prima.sconto)} → <b>${eur(x.ora.prezzo)}${pctxt(x.ora.sconto)}</b></li>`).join('')}</ul>` : ''}
     ${avvisi.length ? `<div class="note warn">${avvisi.map(esc).join('<br>')}</div>` : ''}
     <details class="det"><summary>Righe della fattura (${righe.length})</summary><div class="tblw"><table class="tbl"><thead><tr><th>Descrizione</th><th class="n">Q.tà</th><th class="n">Prezzo</th><th class="n">Sc.</th><th class="n">Totale</th></tr></thead><tbody>
@@ -1101,14 +1106,28 @@ async function mostraFattura(c, f, fat, foto){
         if(gia.exists && !await ask(`La fattura ${fat.numero} di ${f} è già stata salvata. Sostituirla?`)) return;
         await db.collection('fatture').doc(id).set({sede: c.sede, fornitore: f, numero: String(fat.numero||''), data: fat.data||c.data,
           imponibile: +fat.imponibile||0, imposta: +fat.imposta||0, totale: +fat.totale||0, righe, confronto, avvisi, cambiPrezzo: cambi,
-          stato: 'confermata', ordineId: c.id, haFoto: !!foto, creata: new Date().toISOString()});
+          stato: 'confermata', ordineId: c.id || null, haFoto: !!foto, creata: new Date().toISOString()});
         if(foto) await db.collection('fatture_foto').doc(id).set({tipo: foto.type, dati: foto.data});
         const np = {...prec}; righe.forEach(r => { if(r.descrizione) np[chiave(r)] = {prezzo: +r.prezzo||0, sconto: +r.sconto||0, unita: r.unita||'', data: fat.data||c.data}; });
         await db.collection('prezzi_fornitori').doc(slugF(f)).set({fornitore: f, prezzi: np});
         const el = (((c.fatture||{})[f]) || []).filter(x => x.id !== id).concat([{id, numero: String(fat.numero||''), totale: +fat.totale||0, problemi: problemi.length + cambi.length}]);
-        c.fatture = {...(c.fatture||{}), [f]: el}; await db.collection('conteggi').doc(c.id).update({fatture: c.fatture});
-        closeModal(); toast('Fattura salvata','ok'); if(S.conta === c) renderChiusoSoloGiac(c);
+        if(c.id){ c.fatture = {...(c.fatture||{}), [f]: el}; await db.collection('conteggi').doc(c.id).update({fatture: c.fatture}); }
+        closeModal(); toast('Fattura salvata','ok'); if(c.id && S.conta === c) renderChiusoSoloGiac(c);
       }catch(err){ toast('Errore: ' + err.message, 'err'); } };
+  });
+}
+
+/* fattura di Fuerte senza un ordine fatto con l'app (Carmur, Mercadona, ordini a mano…) */
+function fatturaLibera(sede){
+  const forn = [...new Set(S.articoli.filter(a => a.sedeSola === sede).flatMap(a => [a.fornitore, ...(a.alt||[])]).filter(f => f && f !== 'Da definire'))].sort((a,b) => a.localeCompare(b,'it'));
+  modal(`<h2 style="margin-top:0">Fattura senza ordine</h2><p class="muted small">L'app legge la fattura e controlla prezzi e conti; non c'è un ordine da confrontare.</p>
+    <label class="fld">Fornitore<select id="flf" class="sel"><option value="">scegli…</option>${forn.map(f => `<option>${esc(f)}</option>`).join('')}<option value="__altro">+ altro fornitore…</option></select></label>
+    <label class="fld" id="fla-w" style="display:none">Nome del fornitore<input id="fla"></label>
+    <div class="acts"><button class="btn primary" id="flgo">📷 Scegli la foto</button><button class="btn" data-close>Annulla</button></div>`, m => {
+    m.querySelector('#flf').onchange = e => { m.querySelector('#fla-w').style.display = e.target.value === '__altro' ? '' : 'none'; };
+    m.querySelector('#flgo').onclick = () => { const v = m.querySelector('#flf').value, f = (v === '__altro' ? m.querySelector('#fla').value : v).trim();
+      if(!f){ toast('Scegli il fornitore','err'); return; }
+      caricaFattura({id: null, sede, data: ymd(oggiLista())}, f, []); };
   });
 }
 
@@ -1508,6 +1527,9 @@ async function allineaCatalogo(){
   const prezzi = ita.filter(a => PREZZI_SEED[a.nome] && !(Number(a.prezzo) > 0));
   const prezziFu = S.articoli.filter(a => a.sedeSola && PREZZI_FUERTE[a.nome] && !(Number(a.prezzo) > 0) && !FIX_FUERTE[a.nome]);
   /* correzioni puntuali su articoli Fuerte già creati (unità, cartone, prezzo) */
+  /* Fuerte: fornitori alternativi allineati al seed (es. liquori HGR anche da SDM Food) */
+  const altSeed = new Map(fuerteStd().map(x => [x.nome, x.alt || []]));
+  const altFu = S.articoli.filter(a => a.sedeSola && altSeed.has(a.nome) && JSON.stringify(a.alt || []) !== JSON.stringify(altSeed.get(a.nome)));
   const fixFu = S.articoli.filter(a => a.sedeSola && FIX_FUERTE[a.nome] && Object.entries(FIX_FUERTE[a.nome]).some(([k,v]) => JSON.stringify(a[k]) !== JSON.stringify(v)));
   const sanf30 = S.articoli.filter(a => a.sezione === MAG30.sezione && !(SOLO_SEDI_ART[a.nome] && !SOLO_SEDI_ART[a.nome].includes(MAG30.sedeScorte))), riattiva30 = sanf30.length && sanf30.every(a => !attivo(a, MAG30.sedeScorte)) ? sanf30 : [];
   const sezSede = S.articoli.filter(a => SEDI.some(s => !sezInSede(a.sezione,s.id) && attivo(a,s.id)));
@@ -1516,7 +1538,7 @@ async function allineaCatalogo(){
   const fuoriSede = ita.filter(a => SOLO_SEDI_ART[a.nome] && SEDI.some(s => !SOLO_SEDI_ART[a.nome].includes(s.id) && attivo(a,s.id)));
   const fornSeed = {}; std.forEach(x => { if(!x.sedeSola && ['Sammarco','Artioli','Bernardo Legnami'].includes(x.forn)) fornSeed[key(x.nome)] = x.forn; });
   const cambiaForn = ita.filter(a => fornSeed[key(a.nome)] && a.fornitore !== fornSeed[key(a.nome)]);
-  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !prezziFu.length && !fixFu.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
+  if(!nuovi.length && !tolti.length && !lotti.length && !confs.length && !prezzi.length && !prezziFu.length && !fixFu.length && !altFu.length && !riattiva30.length && !cambiaSez.length && !fuoriSede.length && !sezSede.length && !cambiaForn.length){ toast('Il catalogo è già allineato','ok'); return; }
   const righe = [];
   const nuoviFu = nuovi.filter(x => x.sedeSola), nuoviIt = nuovi.filter(x => !x.sedeSola);
   if(nuoviFu.length) righe.push(`Teperino Fuerte: ${nuoviFu.length} articoli nuovi (${[...new Set(nuoviFu.map(x => x.sez))].join(', ')})`);
@@ -1526,6 +1548,7 @@ async function allineaCatalogo(){
   if(fuoriSede.length) righe.push(fuoriSede.map(a => `${a.nome} solo per ${SOLO_SEDI_ART[a.nome].map(sedeNome).join(' e ')}`).join(', '));
   if(riattiva30.length) righe.push('Riattivati gli articoli Sanfelici della 3.0 (li conta la 2.0 nel Magazzino Sanfelici 3.0)');
   if(prezzi.length) righe.push('Prezzi dai DDT Sanfelici: ' + prezzi.length + ' articoli');
+  if(altFu.length) righe.push('Fuerte, fornitori alternativi: ' + altFu.length + ' articoli (es. ' + altFu.slice(0,3).map(a => a.nome).join(', ') + ')');
   if(fixFu.length) righe.push('Fuerte, correzioni: ' + fixFu.map(a => a.nome + (FIX_FUERTE[a.nome].unita ? ' contato a ' + FIX_FUERTE[a.nome].unita : '')).join(', '));
   if(prezziFu.length) righe.push('Prezzi Fuerte dalle fatture: ' + prezziFu.map(a=>a.nome).join(', '));
   if(confs.length) righe.push('Cartoni interi: ' + confs.map(a=>a.nome+' da '+CONF_SEED[a.nome]).join(', '));
@@ -1545,6 +1568,7 @@ async function allineaCatalogo(){
   fuoriSede.forEach(a => { const u = {}; SEDI.forEach(s => { if(!SOLO_SEDI_ART[a.nome].includes(s.id)) u[`sedi.${s.id}.on`] = false; }); b.update(db.collection('articoli').doc(a.id), u); });
   riattiva30.forEach(a => b.update(db.collection('articoli').doc(a.id), {[`sedi.${MAG30.sedeScorte}.on`]: true}));
   prezzi.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_SEED[a.nome], prezzoData: PREZZI_DATA}));
+  altFu.forEach(a => b.update(db.collection('articoli').doc(a.id), {alt: altSeed.get(a.nome)}));
   fixFu.forEach(a => b.update(db.collection('articoli').doc(a.id), FIX_FUERTE[a.nome]));
   prezziFu.forEach(a => b.update(db.collection('articoli').doc(a.id), {prezzo: PREZZI_FUERTE[a.nome], prezzoData: '2026-11-23'}));
   confs.forEach(a => b.update(db.collection('articoli').doc(a.id), {conf: CONF_SEED[a.nome]}));
