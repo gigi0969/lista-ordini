@@ -1023,6 +1023,107 @@ const DEFAULT_COMIT = ['Cotto','Mozzarella','Torta al pistacchio','Bufala','Burr
 const fornScelto = r => { const art = S.articoli.find(x => x.id === r.id); const alt = art && (art.alt||[]).length;
   return alt ? (r.fornScelto || (DEFAULT_COMIT.includes(r.nome) ? 'Comit' : art.fornitore) || '') : (r.fornitore || ''); };
 const fornOpzioni = r => { const art = S.articoli.find(x => x.id === r.id); return art && (art.alt||[]).length ? [art.fornitore, ...art.alt] : [r.fornitore]; };
+/* ============ FATTURE FUERTE: foto → lettura automatica → confronto con l'ordine (solo admin) ============ */
+const FATTURA_API = DEMO ? 'https://lista-ordini-five.vercel.app/api/fattura' : '/api/fattura';
+const NOTE_FATTURA = {'Mozzarella':'1 = una tina/vaschetta di fior di latte da circa 2,8 kg (Comit) o 3 kg (Mammafiore)',
+  'Bufala':'1 = una mozzarella di bufala da 125 g; un cartone = 8 pezzi', 'Burrata':'1 = una burrata da 125 g',
+  'Stracciatella':'1 = una vaschetta da 250 g', 'Cotto':'1 = un prosciutto cotto intero da circa 4 kg', 'Salsiccia':'quantità in kg',
+  'Provola':'un cartone = 16 provole da 500 g (cassa da 8 kg)'};
+const slugF = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const notaArt = r => { if(NOTE_FATTURA[r.nome]) return NOTE_FATTURA[r.nome]; const a = S.articoli.find(x => x.id === r.id); if(!a) return '';
+  if(a.kgUnita) return `1 busta = ${fmtN(a.kgUnita)} kg`; if(a.ordTorte) return '1 = una torta intera'; if(Number(a.conf) > 1) return `si vende a confezioni da ${fmtN(a.conf)} ${a.unita||''}`;
+  return (a.unita||'') === 'KG' ? 'quantità in kg' : ''; };
+const leggiFile = f => new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok({type: f.type || 'application/pdf', data: String(fr.result).split(',')[1]}); fr.onerror = ko; fr.readAsDataURL(f); });
+const riduci = (f, lato, q) => new Promise((ok, ko) => { const u = URL.createObjectURL(f), im = new Image();
+  im.onload = () => { const k = Math.min(1, lato / Math.max(im.width, im.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+    URL.revokeObjectURL(u); ok({type:'image/jpeg', data: cv.toDataURL('image/jpeg', q).split(',')[1]}); };
+  im.onerror = () => { URL.revokeObjectURL(u); ko(new Error('Immagine non leggibile')); }; im.src = u; });
+const ESITI = {ok:['ok','OK'], in_eccesso:['todo','In più'], in_meno:['wip','In meno'], mancante:['todo','Mancante'], non_ordinato:['wip','Non ordinato'], diverso:['todo','Diverso']};
+
+function caricaFattura(c, f, list){
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*,application/pdf';
+  inp.onchange = async () => { const file = inp.files && inp.files[0]; if(!file) return;
+    modal(`<h2 style="margin-top:0">Lettura fattura ${esc(f)}</h2><p class="loading">Sto leggendo la fattura e la confronto con l'ordine: 10–40 secondi…</p>`);
+    try{
+      const pdf = file.type === 'application/pdf';
+      const doc = pdf ? await leggiFile(file) : await riduci(file, 2000, .82);
+      const foto = pdf ? (doc.data.length < 850000 ? doc : null) : await riduci(file, 1300, .6);
+      const ordine = list.map(r => ({articolo: r.nome, ordinato: qtaTxt(r), nota: notaArt(r)}));
+      let token = ''; try{ token = await auth.currentUser.getIdToken(); }catch(e){}
+      const resp = await fetch(FATTURA_API, {method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({idToken: token, file: doc.data, mediaType: doc.type, fornitore: f, ordine})});
+      const j = await resp.json().catch(() => ({}));
+      if(!resp.ok || !j.fattura) throw new Error(j.error || ('errore ' + resp.status));
+      await mostraFattura(c, f, j.fattura, foto);
+    }catch(err){ modal(`<h2 style="margin-top:0">Fattura non letta</h2><p>${esc(err.message)}</p><p class="muted small">Riprova con una foto più nitida, dritta e con tutta la fattura nell'inquadratura.</p><div class="acts"><button class="btn" data-close>Chiudi</button></div>`); }
+  };
+  inp.click();
+}
+
+async function mostraFattura(c, f, fat, foto){
+  const righe = fat.righe || [], confronto = fat.confronto || [], avvisi = [...(fat.avvisi || [])];
+  /* prezzi e sconti rispetto all'ultima fattura dello stesso fornitore */
+  let prec = {}; try{ const s = await db.collection('prezzi_fornitori').doc(slugF(f)).get(); if(s.exists) prec = s.data().prezzi || {}; }catch(e){}
+  const chiave = r => String(r.descrizione||'').toUpperCase().replace(/\s+/g,' ').trim();
+  const cambi = righe.map(r => { const p = prec[chiave(r)]; if(!p) return null;
+    const dp = Math.abs((+r.prezzo||0) - (+p.prezzo||0)) > 0.005, ds = (+r.sconto||0) !== (+p.sconto||0);
+    return dp || ds ? {descrizione: r.descrizione, prima: p, ora: {prezzo: +r.prezzo||0, sconto: +r.sconto||0}} : null; }).filter(Boolean);
+  const somma = righe.reduce((t,r) => t + (+r.totale||0), 0);
+  if(fat.imponibile && Math.abs(somma - fat.imponibile) > 0.1) avvisi.push(`La somma delle righe (${eur(somma)}) non torna con l'imponibile (${eur(fat.imponibile)}).`);
+  const problemi = confronto.filter(x => x.esito !== 'ok');
+  const pctxt = v => v ? ` −${fmtN(v)}%` : '';
+  modal(`<h2 style="margin-top:0">${esc(f)} · fattura ${esc(fat.numero||'?')} del ${fat.data ? fmt(fat.data) : '?'}</h2>
+    <p>Imponibile <b>${eur(+fat.imponibile||0)}</b> · imposta ${eur(+fat.imposta||0)} · totale <b>${eur(+fat.totale||0)}</b></p>
+    <h3 class="h3">Confronto con l'ordine ${problemi.length ? `<span class="pill todo">${problemi.length} da controllare</span>` : '<span class="pill ok">tutto giusto</span>'}</h3>
+    <div class="tblw"><table class="tbl"><thead><tr><th>Articolo</th><th>Ordinato</th><th>Arrivato</th><th>Esito</th></tr></thead><tbody>
+    ${confronto.map(x => { const e = ESITI[x.esito] || ['wip', x.esito]; return `<tr><td>${esc(x.articolo||'')}${x.nota ? `<br><small class="muted">${esc(x.nota)}</small>` : ''}</td><td>${esc(x.ordinato||'–')}</td><td>${esc(x.consegnato||'–')}</td><td><span class="pill ${e[0]}">${esc(e[1])}</span></td></tr>`; }).join('')}
+    </tbody></table></div>
+    ${cambi.length ? `<h3 class="h3">Prezzi cambiati dall'ultima fattura</h3><ul>${cambi.map(x => `<li>${esc(x.descrizione)}: ${eur(x.prima.prezzo)}${pctxt(x.prima.sconto)} → <b>${eur(x.ora.prezzo)}${pctxt(x.ora.sconto)}</b></li>`).join('')}</ul>` : ''}
+    ${avvisi.length ? `<div class="note warn">${avvisi.map(esc).join('<br>')}</div>` : ''}
+    <details class="det"><summary>Righe della fattura (${righe.length})</summary><div class="tblw"><table class="tbl"><thead><tr><th>Descrizione</th><th class="n">Q.tà</th><th class="n">Prezzo</th><th class="n">Sc.</th><th class="n">Totale</th></tr></thead><tbody>
+    ${righe.map(r => `<tr><td>${esc(r.descrizione||'')}</td><td class="n">${fmtN(+r.qta||0)} ${esc(r.unita||'')}</td><td class="n">${eur(+r.prezzo||0)}</td><td class="n">${r.sconto ? fmtN(+r.sconto)+'%' : ''}</td><td class="n">${eur(+r.totale||0)}</td></tr>`).join('')}
+    </tbody></table></div></details>
+    <p class="muted small">Controlla i numeri con la fattura: la lettura automatica può sbagliare.</p>
+    <div class="acts"><button class="btn primary" id="fconf">Conferma e salva</button>${problemi.length || cambi.length ? '<button class="btn" id="frecl">Prepara reclamo</button>' : ''}<button class="btn" data-close>Annulla</button></div>`, m => {
+    const recl = m.querySelector('#frecl');
+    if(recl) recl.onclick = async () => {
+      const t = `Ciao, sulla fattura ${fat.numero||''} del ${fat.data ? fmt(fat.data) : ''} (${sedeNome(c.sede)}) ci sono delle differenze:\n\n` +
+        problemi.map(x => `- ${x.articolo}: ordinato ${x.ordinato||'niente'}, arrivato ${x.consegnato||'niente'}`).join('\n') +
+        (cambi.length ? (problemi.length ? '\n' : '') + cambi.map(x => `- ${x.descrizione}: prezzo ${eur(x.ora.prezzo)}${pctxt(x.ora.sconto)}, l'ultima volta ${eur(x.prima.prezzo)}${pctxt(x.prima.sconto)}`).join('\n') : '') +
+        `\n\nMi fate sapere per favore? Grazie, ${NOME_ORDINI}`;
+      if(navigator.share){ try{ await navigator.share({text: t}); return; }catch(err){ if(err && err.name === 'AbortError') return; } }
+      navigator.clipboard.writeText(t).then(() => toast('Reclamo copiato: incollalo nella chat del fornitore','ok'), () => toast('Copia non riuscita','err')); };
+    m.querySelector('#fconf').onclick = async () => {
+      const id = `${c.sede}_${slugF(f)}_${String(fat.numero||Date.now()).replace(/[^A-Za-z0-9-]/g,'')}`;
+      try{
+        const gia = await db.collection('fatture').doc(id).get();
+        if(gia.exists && !await ask(`La fattura ${fat.numero} di ${f} è già stata salvata. Sostituirla?`)) return;
+        await db.collection('fatture').doc(id).set({sede: c.sede, fornitore: f, numero: String(fat.numero||''), data: fat.data||c.data,
+          imponibile: +fat.imponibile||0, imposta: +fat.imposta||0, totale: +fat.totale||0, righe, confronto, avvisi, cambiPrezzo: cambi,
+          stato: 'confermata', ordineId: c.id, haFoto: !!foto, creata: new Date().toISOString()});
+        if(foto) await db.collection('fatture_foto').doc(id).set({tipo: foto.type, dati: foto.data});
+        const np = {...prec}; righe.forEach(r => { if(r.descrizione) np[chiave(r)] = {prezzo: +r.prezzo||0, sconto: +r.sconto||0, unita: r.unita||'', data: fat.data||c.data}; });
+        await db.collection('prezzi_fornitori').doc(slugF(f)).set({fornitore: f, prezzi: np});
+        const el = (((c.fatture||{})[f]) || []).filter(x => x.id !== id).concat([{id, numero: String(fat.numero||''), totale: +fat.totale||0, problemi: problemi.length + cambi.length}]);
+        c.fatture = {...(c.fatture||{}), [f]: el}; await db.collection('conteggi').doc(c.id).update({fatture: c.fatture});
+        closeModal(); toast('Fattura salvata','ok'); if(S.conta === c) renderChiusoSoloGiac(c);
+      }catch(err){ toast('Errore: ' + err.message, 'err'); } };
+  });
+}
+
+async function vediFattura(id){
+  try{ const s = await db.collection('fatture').doc(id).get(); if(!s.exists){ toast('Fattura non trovata','err'); return; } const x = s.data();
+    let img = ''; if(x.haFoto){ try{ const p = await db.collection('fatture_foto').doc(id).get(); if(p.exists){ const d = p.data();
+      img = d.tipo === 'application/pdf' ? `<p><a class="btn" href="data:application/pdf;base64,${d.dati}" download="fattura_${esc(x.numero)}.pdf">Apri il PDF</a></p>` : `<img src="data:${d.tipo};base64,${d.dati}" alt="Fattura ${esc(x.numero)}" style="max-width:100%;border-radius:8px;margin:.5rem 0">`; } }catch(e){} }
+    const pr = (x.confronto||[]).filter(r => r.esito !== 'ok');
+    modal(`<h2 style="margin-top:0">${esc(x.fornitore)} · fattura ${esc(x.numero)} del ${fmt(x.data)}</h2><p>Imponibile <b>${eur(x.imponibile)}</b> · totale <b>${eur(x.totale)}</b></p>
+      ${pr.length ? `<ul>${pr.map(r => `<li><b>${esc(r.articolo)}</b>: ordinato ${esc(r.ordinato||'–')}, arrivato ${esc(r.consegnato||'–')}</li>`).join('')}</ul>` : '<p><span class="pill ok">Consegna uguale all\'ordine</span></p>'}
+      ${(x.cambiPrezzo||[]).length ? `<p class="small">Prezzi cambiati: ${(x.cambiPrezzo).map(r => esc(r.descrizione)).join(', ')}</p>` : ''}${img}
+      <div class="acts"><button class="btn" data-close>Chiudi</button></div>`);
+  }catch(err){ toast('Errore: ' + err.message, 'err'); }
+}
+
 function renderChiusoSoloGiac(c){
   S.tieniScroll = S.view === 'conta' && S.ultimoChiuso === c.id; S.ultimoChiuso = c.id;
   const det = c.dettaglio || [], cd = toDate(c.chiuso);
@@ -1054,7 +1155,9 @@ function renderChiusoSoloGiac(c){
     <ul>${list.map(r => `<li><b>${esc(qtaTxt(r))}</b>${esc(r.nome)}</li>`).join('')}</ul>
     ${(() => { const cp = list.filter(r => prezzoF(r,f) > 0); if(!cp.length) return ''; const tot = cp.reduce((t,r) => t + r.ordine * prezzoF(r,f), 0);
       return `<p class="small" style="margin:.4rem 0">Valore stimato <b>${eur(tot)}</b>${cp.length < list.length ? ` <span class="muted">(${list.length - cp.length} senza prezzo)</span>` : ''}</p>`; })()}
-    <div class="ord-acts"><button class="btn primary" data-inv="${i}">${fw ? 'Inoltra di nuovo' : 'Inoltra a ' + esc(f)}</button><button class="btn" data-cp="${i}">Copia testo</button></div></article>`; }).join('')}</div>`
+    <div class="ord-acts"><button class="btn primary" data-inv="${i}">${fw ? 'Inoltra di nuovo' : 'Inoltra a ' + esc(f)}</button><button class="btn" data-cp="${i}">Copia testo</button></div>
+    ${(((c.fatture||{})[f]) || []).map(x => `<p class="small" style="margin:.4rem 0 0"><button class="link" data-vedifatt="${esc(x.id)}">Fattura ${esc(x.numero)} · ${eur(x.totale)}</button> ${x.problemi ? `<span class="pill todo">${x.problemi} da controllare</span>` : '<span class="pill ok">ok</span>'}</p>`).join('')}
+    <div class="ord-acts" style="margin-top:.4rem"><button class="btn" data-carfatt="${i}">📷 Carica fattura</button></div></article>`; }).join('')}</div>`
     : '<p class="empty">Ancora nessun ordine pronto: scegli quantità e fornitore qui sopra.</p>'}
   <details class="det"><summary>Giacenze contate (${det.length})</summary><div class="tblw"><table class="tbl">
     <thead><tr><th>Articolo</th><th class="n">Giacenza ${fmt(c.data)}</th><th class="n">Min</th><th class="n">Max</th></tr></thead>
@@ -1066,6 +1169,8 @@ function renderChiusoSoloGiac(c){
   const ag = $('#aggiungi'); if(ag) ag.onchange = () => { const r = riga(ag.value); if(!r) return; r.inOrdine = true; salva(); };
   main().onclick = async e => {
     if(e.target.closest('[data-sedeback]')){ openSede(c.sede, c.data); return; }
+    const cf = e.target.closest('[data-carfatt]'); if(cf){ const [f,list] = perF[+cf.dataset.carfatt]; caricaFattura(c, f, list); return; }
+    const vf = e.target.closest('[data-vedifatt]'); if(vf){ vediFattura(vf.dataset.vedifatt); return; }
     const iv = e.target.closest('[data-inv]'), cp = e.target.closest('[data-cp]'); if(!iv && !cp) return;
     const [f,list] = perF[+(iv||cp).dataset[iv ? 'inv' : 'cp']]; const t = testoFornitore(c,f,list);
     if(cp){ navigator.clipboard.writeText(t).then(()=>toast('Testo copiato','ok'),()=>toast('Copia non riuscita','err')); return; }
